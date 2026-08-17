@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KAFV OSM 좌표 DB 생성기</title>
+<style>
+:root{
+  --yellow:#FEE500; --ink:#17212b; --muted:#66737e; --line:#d5dde3;
+  --bg:#eef3f7; --ok:#0b7a53; --bad:#b42318; --blue:#1167b1;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.wrap{max-width:980px;margin:22px auto;padding:0 14px 34px}
+.card{
+  background:#fff;border:1px solid #e4e9ed;border-radius:18px;padding:18px;
+  box-shadow:0 8px 26px rgba(0,0,0,.08);margin-bottom:14px
+}
+h1{font-size:22px;margin:0 0 8px}
+h2{font-size:16px;margin:0 0 10px}
+.note{font-size:12px;color:var(--muted);line-height:1.65}
+.warn{
+  margin-top:12px;padding:11px 12px;border-radius:12px;
+  background:#fff7d7;border:1px solid #ecd066;font-size:12px;line-height:1.65
+}
+.okbox{
+  margin-top:12px;padding:11px 12px;border-radius:12px;
+  background:#ecfff6;border:1px solid #9fdabf;font-size:12px;line-height:1.65
+}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+button{
+  border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;
+  background:#edf1f4;color:var(--ink)
+}
+button.primary{background:var(--yellow)}
+button.blue{background:#e7f2ff;color:#0b5c9f}
+button.danger{background:#ffe9e7;color:#a52218}
+button:disabled{opacity:.45;cursor:not-allowed}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.stat{background:#f6f8fa;border:1px solid #e6eaed;border-radius:11px;padding:10px;text-align:center}
+.stat b{display:block;font-size:18px}.stat span{font-size:10px;color:var(--muted)}
+.progress{height:13px;background:#e7edf1;border-radius:999px;overflow:hidden;margin:13px 0 4px}
+.bar{height:100%;width:0;background:#168c8c;transition:width .15s}
+.meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+.log{
+  margin-top:12px;height:360px;overflow:auto;border-radius:12px;background:#111827;color:#d1fae5;
+  padding:11px;font:11px/1.55 ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;white-space:pre-wrap
+}
+.badge{
+  display:inline-block;padding:3px 7px;border-radius:999px;background:#eef3f7;font-size:10px;font-weight:800
+}
+.good{color:var(--ok)} .bad{color:var(--bad)}
+small code{background:#f1f4f6;padding:1px 4px;border-radius:5px}
+@media(max-width:720px){
+  .stats{grid-template-columns:1fr 1fr 1fr}
+  button{flex:1 1 45%}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="card">
+    <h1>🗺 KAFV 수산기업정보 AI — OSM 좌표 DB 생성기</h1>
+    <div class="note">
+      GitHub의 <b>address_queue.json</b>을 읽어 고유주소를 한 건씩 OpenStreetMap Nominatim에 질의하고,
+      결과를 브라우저에 캐시합니다. 완료 후 <b>coordinates.json</b>을 내려받아 GitHub의 기존 파일에 덮어쓰면 됩니다.
+    </div>
+
+    <div class="warn">
+      <b>공용 Nominatim 사용정책 준수:</b> 단일 브라우저·단일 스레드로만 실행하며,
+      요청 간격은 <b>1.25초 이상</b>으로 고정되어 있습니다. 동일 주소는 다시 요청하지 않고 로컬 캐시를 사용합니다.
+      이 도구는 KAFV의 <b>일회성 좌표 구축</b>에만 사용하십시오.
+    </div>
+
+    <div class="okbox">
+      검색 순서: <b>geocodeCandidate1 → geocodeAddress → 원주소 정제본</b>.
+      기존 <b>coordinates.json</b>이 있으면 먼저 병합하므로 현재 사조대림 좌표도 보존됩니다.
+      지도 표시 시에는 기존 Leaflet의 OpenStreetMap 출처표시를 유지하십시오.
+    </div>
+
+    <div class="controls">
+      <button class="blue" id="btnTest" onclick="testOne()">1건 확인</button>
+      <button class="primary" id="btn100" onclick="startRun(100)">100건 시험</button>
+      <button class="primary" id="btnAll" onclick="startRun(0)">전체 6,316건</button>
+      <button id="btnPause" onclick="pauseRun()">일시정지</button>
+      <button id="btnResume" onclick="resumeRun()">계속</button>
+      <button class="blue" onclick="downloadCoordinates()">coordinates.json 내려받기</button>
+      <button class="blue" onclick="downloadFailures()">실패주소 내려받기</button>
+      <button class="danger" onclick="resetCache()">캐시 초기화</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><b id="total">0</b><span>대상</span></div>
+      <div class="stat"><b id="processed">0</b><span>처리완료</span></div>
+      <div class="stat"><b id="success">0</b><span>좌표성공</span></div>
+      <div class="stat"><b id="fail">0</b><span>실패</span></div>
+      <div class="stat"><b id="remaining">0</b><span>남음</span></div>
+      <div class="stat"><b id="pct">0%</b><span>진행률</span></div>
+    </div>
+    <div class="progress"><div id="bar" class="bar"></div></div>
+    <div class="meta">
+      <span id="stateText">준비 중</span>
+      <span>요청 간격: <b>1.25초+</b> · 단일 스레드</span>
+    </div>
+    <div id="log" class="log"></div>
+  </div>
+
+  <div class="card">
+    <h2>📌 완료 후</h2>
+    <div class="note">
+      <b>coordinates.json 내려받기</b> → GitHub 저장소의 기존 <b>coordinates.json</b> 내용 전체 교체 →
+      GitHub Pages 반영 후 지도 확인. <b>index.html, companies.json, sw.js는 건드리지 않습니다.</b>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const MIN_INTERVAL_MS = 1250;
+const CACHE_KEY = "kafv_osm_geocode_cache_v2";
+
+let queue = [];
+let cache = {};
+let running = false;
+let paused = false;
+let runLimit = 0;
+let lastRequestAt = 0;
+let wakeLock = null;
+
+const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function log(msg){
+  const t = new Date().toLocaleTimeString("ko-KR",{hour12:false});
+  const el = $("log");
+  el.textContent += `[${t}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function loadCache(){
+  try{
+    cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
+  }catch(e){
+    cache = {};
+    log("캐시 읽기 실패: " + e.message);
+  }
+}
+
+function saveCache(){
+  try{
+    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  }catch(e){
+    log("⚠ 캐시 저장 실패: " + e.message);
+  }
+}
+
+async function fetchJson(paths){
+  let last;
+  for(const path of paths){
+    try{
+      const r = await fetch(path,{cache:"no-store"});
+      if(!r.ok) throw new Error(`${path} HTTP ${r.status}`);
+      return await r.json();
+    }catch(e){ last = e; }
+  }
+  throw last || new Error("JSON 로드 실패");
+}
+
+function validCoord(x){
+  const lat = Number(x?.lat), lng = Number(x?.lng);
+  return Number.isFinite(lat) && Number.isFinite(lng) &&
+         lat >= 32 && lat <= 40 && lng >= 123 && lng <= 133;
+}
+
+function isSuccess(x){
+  return !!x && (x.status === "OK" || x.status === "VERIFIED") && validCoord(x);
+}
+
+function targetRows(){
+  return runLimit ? queue.slice(0, Math.min(runLimit,queue.length)) : queue;
+}
+
+function updateUI(){
+  const rows = targetRows();
+  const keys = rows.map(r=>r.addressKey);
+  const processed = keys.filter(k=>cache[k]).length;
+  const success = keys.filter(k=>isSuccess(cache[k])).length;
+  const fail = processed - success;
+  const remaining = Math.max(0, rows.length - processed);
+  const pct = rows.length ? processed / rows.length * 100 : 0;
+
+  $("total").textContent = rows.length.toLocaleString();
+  $("processed").textContent = processed.toLocaleString();
+  $("success").textContent = success.toLocaleString();
+  $("fail").textContent = fail.toLocaleString();
+  $("remaining").textContent = remaining.toLocaleString();
+  $("pct").textContent = pct.toFixed(1) + "%";
+  $("bar").style.width = pct + "%";
+
+  $("stateText").textContent =
+    running ? (paused ? "일시정지" : "좌표 추출 중") : "대기";
+}
+
+function normalizeOriginal(s){
+  return String(s||"")
+    .replace(/\([^)]*\)/g," ")
+    .replace(/\s+/g," ")
+    .replace(/\s*,\s*.*$/,"")
+    .trim();
+}
+
+function candidates(row){
+  const list = [
+    row.geocodeCandidate1,
+    row.geocodeAddress,
+    normalizeOriginal(row.address)
+  ].map(x=>String(x||"").trim()).filter(Boolean);
+
+  return [...new Set(list)];
+}
+
+async function throttle(){
+  const elapsed = Date.now() - lastRequestAt;
+  if(elapsed < MIN_INTERVAL_MS){
+    await sleep(MIN_INTERVAL_MS - elapsed);
+  }
+  lastRequestAt = Date.now();
+}
+
+async function nominatimSearch(address){
+  await throttle();
+
+  const u = new URL(NOMINATIM);
+  u.searchParams.set("q", address);
+  u.searchParams.set("format", "jsonv2");
+  u.searchParams.set("limit", "1");
+  u.searchParams.set("countrycodes", "kr");
+  u.searchParams.set("addressdetails", "1");
+  u.searchParams.set("accept-language", "ko");
+
+  const r = await fetch(u.toString(),{
+    method:"GET",
+    mode:"cors",
+    cache:"no-store",
+    headers:{
+      "Accept":"application/json"
+    }
+  });
+
+  if(r.status === 429) throw new Error("HTTP_429_RATE_LIMIT");
+  if(!r.ok) throw new Error("HTTP_" + r.status);
+
+  const arr = await r.json();
+  if(!Array.isArray(arr) || !arr.length) return null;
+
+  const x = arr[0];
+  const lat = Number(x.lat);
+  const lng = Number(x.lon);
+  if(!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return {
+    lat, lng,
+    provider:"nominatim-osm",
+    status:"OK",
+    matchedAddress:x.display_name || "",
+    osmType:x.osm_type || "",
+    osmId:x.osm_id || "",
+    placeId:x.place_id || "",
+    importance:Number.isFinite(Number(x.importance)) ? Number(x.importance) : null
+  };
+}
+
+async function resolveRow(row){
+  const qs = candidates(row);
+
+  for(let i=0;i<qs.length;i++){
+    const q = qs[i];
+    try{
+      const hit = await nominatimSearch(q);
+      if(hit){
+        return {
+          addressKey:row.addressKey,
+          ...hit,
+          query:q,
+          candidateIndex:i+1
+        };
+      }
+    }catch(e){
+      if(String(e.message).includes("429")){
+        return {
+          addressKey:row.addressKey,
+          provider:"nominatim-osm",
+          status:"RATE_LIMIT",
+          error:e.message,
+          query:q,
+          fatal:true
+        };
+      }
+      // 일시적 네트워크 오류는 1회 더 쉬고 재시도
+      await sleep(2500);
+      try{
+        const hit2 = await nominatimSearch(q);
+        if(hit2){
+          return {
+            addressKey:row.addressKey,
+            ...hit2,
+            query:q,
+            candidateIndex:i+1
+          };
+        }
+      }catch(e2){
+        // 다음 후보로 진행
+      }
+    }
+  }
+
+  return {
+    addressKey:row.addressKey,
+    provider:"nominatim-osm",
+    status:"ZERO_RESULTS",
+    query:qs[0] || "",
+    error:"NO_COORDINATE"
+  };
+}
+
+async function requestWakeLock(){
+  try{
+    if("wakeLock" in navigator && !wakeLock){
+      wakeLock = await navigator.wakeLock.request("screen");
+      wakeLock.addEventListener("release",()=>{wakeLock=null});
+      log("화면 절전 방지 활성화");
+    }
+  }catch(e){
+    log("화면 절전 방지 사용 불가 — 브라우저 창을 열어 두십시오.");
+  }
+}
+
+async function releaseWakeLock(){
+  try{ if(wakeLock) await wakeLock.release(); }catch{}
+  wakeLock = null;
+}
+
+document.addEventListener("visibilitychange", async ()=>{
+  if(document.visibilityState === "visible" && running && !paused){
+    await requestWakeLock();
+  }
+});
+
+async function testOne(){
+  $("btnTest").disabled = true;
+  try{
+    log("1건 시험: 서울특별시 서초구 남부순환로 2159");
+    const hit = await nominatimSearch("서울특별시 서초구 남부순환로 2159");
+    if(hit){
+      log(`✅ 1건 성공 → ${hit.lat}, ${hit.lng} / ${hit.matchedAddress}`);
+    }else{
+      log("❌ 1건 검색 결과 없음");
+    }
+  }catch(e){
+    log("❌ 1건 시험 오류: " + e.message);
+  }finally{
+    $("btnTest").disabled = false;
+  }
+}
+
+async function startRun(limit){
+  if(running){
+    log("이미 실행 중입니다.");
+    return;
+  }
+
+  runLimit = limit;
+  running = true;
+  paused = false;
+  updateUI();
+  await requestWakeLock();
+
+  const rows = targetRows();
+  log(`START ${rows.length.toLocaleString()}건 — 캐시된 주소는 건너뜁니다.`);
+
+  for(let i=0;i<rows.length;i++){
+    while(paused) await sleep(350);
+    if(!running) break;
+
+    const row = rows[i];
+    if(cache[row.addressKey]){
+      updateUI();
+      continue;
+    }
+
+    const result = await resolveRow(row);
+    cache[row.addressKey] = result;
+    saveCache();
+    updateUI();
+
+    const label = row.geocodeCandidate1 || row.geocodeAddress || row.address || "";
+
+    if(isSuccess(result)){
+      log(`[${i+1}/${rows.length}] ✅ ${label} → ${result.lat}, ${result.lng}`);
+    }else{
+      log(`[${i+1}/${rows.length}] ❌ ${result.status} — ${label}`);
+    }
+
+    if(result.fatal){
+      log("⛔ 서버가 요청 제한을 반환하여 자동 중단했습니다. 잠시 후 계속 버튼으로 재개하십시오.");
+      paused = true;
+      updateUI();
+      break;
+    }
+  }
+
+  if(!paused){
+    running = false;
+    updateUI();
+    await releaseWakeLock();
+    log("DONE — coordinates.json을 내려받으십시오.");
+  }
+}
+
+function pauseRun(){
+  if(!running) return;
+  paused = true;
+  updateUI();
+  log("PAUSE");
+}
+
+function resumeRun(){
+  if(!running){
+    log("실행 중인 작업이 없습니다. 100건 시험 또는 전체 실행을 누르십시오.");
+    return;
+  }
+  paused = false;
+  updateUI();
+  requestWakeLock();
+  log("RESUME");
+}
+
+function downloadBlob(name,obj){
+  const blob = new Blob([JSON.stringify(obj,null,2)],{type:"application/json;charset=utf-8"});
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=>URL.revokeObjectURL(href),1500);
+}
+
+function downloadCoordinates(){
+  const rows = Object.values(cache)
+    .filter(isSuccess)
+    .map(x=>({
+      addressKey:x.addressKey,
+      lat:Number(x.lat),
+      lng:Number(x.lng),
+      provider:x.provider || "nominatim-osm",
+      status:x.status === "VERIFIED" ? "VERIFIED" : "OK",
+      matchedAddress:x.matchedAddress || "",
+      query:x.query || ""
+    }))
+    .sort((a,b)=>a.addressKey.localeCompare(b.addressKey));
+
+  downloadBlob("coordinates.json",rows);
+  log(`DOWNLOAD coordinates.json — ${rows.length.toLocaleString()}건`);
+}
+
+function downloadFailures(){
+  const queueMap = new Map(queue.map(r=>[r.addressKey,r]));
+  const rows = Object.values(cache)
+    .filter(x=>!isSuccess(x))
+    .map(x=>({
+      ...x,
+      geocodeCandidate1:queueMap.get(x.addressKey)?.geocodeCandidate1 || "",
+      geocodeAddress:queueMap.get(x.addressKey)?.geocodeAddress || "",
+      address:queueMap.get(x.addressKey)?.address || "",
+      examples:queueMap.get(x.addressKey)?.examples || []
+    }));
+
+  downloadBlob("geocode_failures.json",rows);
+  log(`DOWNLOAD geocode_failures.json — ${rows.length.toLocaleString()}건`);
+}
+
+function resetCache(){
+  if(!confirm("브라우저에 저장된 좌표 캐시를 초기화하시겠습니까? 기존 GitHub coordinates.json은 새로고침할 때 다시 병합됩니다.")) return;
+  cache = {};
+  localStorage.removeItem(CACHE_KEY);
+  updateUI();
+  log("CACHE RESET");
+}
+
+async function init(){
+  loadCache();
+
+  queue = await fetchJson([
+    "./address_queue.json",
+    "./data/address_queue.json",
+    "../data/address_queue.json"
+  ]);
+
+  log(`address_queue.json ${queue.length.toLocaleString()}건 로드`);
+
+  try{
+    const existing = await fetchJson([
+      "./coordinates.json",
+      "./data/coordinates.json",
+      "../data/coordinates.json"
+    ]);
+
+    if(Array.isArray(existing)){
+      let merged = 0;
+      for(const x of existing){
+        if(!x?.addressKey || !validCoord(x)) continue;
+        if(!cache[x.addressKey]){
+          cache[x.addressKey] = {
+            addressKey:x.addressKey,
+            lat:Number(x.lat),
+            lng:Number(x.lng),
+            provider:x.provider || "existing",
+            status:x.status || "VERIFIED",
+            matchedAddress:x.matchedAddress || "",
+            query:x.query || ""
+          };
+          merged++;
+        }
+      }
+      saveCache();
+      log(`기존 coordinates.json 좌표 ${merged.toLocaleString()}건 병합`);
+    }
+  }catch(e){
+    log("기존 coordinates.json 로드 생략: " + e.message);
+  }
+
+  updateUI();
+  log("준비 완료. 먼저 '1건 확인' 또는 '100건 시험'을 실행하십시오.");
+}
+
+init().catch(e=>{
+  log("초기화 오류: " + e.message);
+  $("stateText").textContent = "초기화 실패";
+});
+</script>
+</body>
+</html>

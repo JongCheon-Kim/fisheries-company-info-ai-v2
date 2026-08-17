@@ -1,0 +1,25 @@
+{
+  "version": "2.0-static-map",
+  "workerFree": true,
+  "records": 7320,
+  "production": 75,
+  "processing": 810,
+  "distribution": 4877,
+  "foodservice": 1558,
+  "uniqueAddresses": 6316,
+  "coordinateAddresses": 4304,
+  "coordinateCompanies": 5144,
+  "relationships": 338,
+  "fisSelectableYears": [
+    "2021",
+    "2022",
+    "2023",
+    "2024"
+  ],
+  "fisStaticStoredYear": "2024",
+  "productionSelectableYears": [
+    "2019"
+  ],
+  "runtimeExternalCompanyApi": false,
+  "runtimeGeocodingApi": false
+}

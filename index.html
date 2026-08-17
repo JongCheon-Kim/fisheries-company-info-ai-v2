@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#FEE500">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="수산기업정보AI">
+<title>KAFV 수산기업정보 AI v2</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="./kafv-fish-company-ai-icon-192.png">
+<link rel="apple-touch-icon" href="./kafv-fish-company-ai-icon-192.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<style>
+:root{--yellow:#FEE500;--bg:#BACEE0;--text:#191919;--muted:#66737e;--line:#d7dee5;--white:#fff;--danger:#b42318;--ok:#157347;--soft:#f4f6f8}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;color:var(--text);background:#eef2f5}button,input{font:inherit}button{cursor:pointer}
+.stage{min-height:100vh;display:grid;place-items:center;padding:16px}.phone{width:min(390px,100%);height:min(830px,calc(100vh - 32px));background:var(--bg);border-radius:44px;overflow:hidden;display:grid;grid-template-rows:auto 1fr auto auto;position:relative;border:1px solid rgba(0,0,0,.08);box-shadow:0 18px 55px rgba(22,40,54,.20)}
+.header{background:#fff;min-height:64px;display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);z-index:8}.logo{width:42px;height:42px;border-radius:13px;background:var(--yellow);display:grid;place-items:center;flex:0 0 auto;box-shadow:inset 0 0 0 1px rgba(0,0,0,.04)}.logo svg{width:30px;height:30px}.brand{flex:1;min-width:0}.title{font-weight:900;font-size:15px;white-space:nowrap}.sub{font-size:10.5px;color:var(--muted);margin-top:3px;white-space:nowrap}.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#2fb344;margin-right:5px}.hbtn{width:32px;height:32px;border:0;border-radius:10px;background:#f4f6f8;font-weight:800;flex:0 0 auto}
+.chat{overflow:auto;padding:14px 12px 18px;position:relative}.row{display:flex;margin:8px 0}.row.bot{justify-content:flex-start}.row.user{justify-content:flex-end}.bubble{max-width:90%;padding:10px 12px;border-radius:15px;font-size:13px;line-height:1.55;box-shadow:0 1px 1px rgba(0,0,0,.05)}.bot .bubble{background:#fff;border-top-left-radius:4px}.user .bubble{background:var(--yellow);border-top-right-radius:4px}.bubble h3{font-size:14px;margin:0 0 6px}.source{font-size:10.5px;color:#6b7782;margin-top:7px}.err{color:var(--danger)}
+.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px;background:rgba(255,255,255,.96);border-top:1px solid rgba(0,0,0,.06);z-index:6}.quick button{border:1px solid transparent;background:#fff;border-radius:13px;min-height:55px;font-size:11px;font-weight:900;box-shadow:0 1px 4px rgba(0,0,0,.05)}.quick button.active{border-color:#e6bc00;background:#fffdf0}.quick span{display:block;font-size:20px;margin-bottom:2px}
+.composer{display:flex;gap:6px;background:#fff;padding:9px 9px calc(9px + env(safe-area-inset-bottom));border-top:1px solid var(--line);align-items:center;z-index:7}.main-search-wrap{position:relative;flex:1;min-width:0}.main-search-wrap>input{width:100%;border:1px solid var(--line);border-radius:18px;padding:9px 42px 9px 12px}.main-drop-btn{position:absolute;right:4px;top:4px;width:32px;height:32px;border:0;border-radius:10px;background:#f3f5f7;font-size:14px;font-weight:900;z-index:3}.main-drop-btn.open{transform:rotate(180deg)}.send{width:38px;height:38px;border:0;border-radius:13px;background:var(--yellow);font-weight:900;flex:0 0 auto}
+.main-suggest{display:none;position:absolute;left:0;right:0;bottom:calc(100% + 7px);z-index:70;background:#fff;border:1px solid #d7dee5;border-radius:14px;box-shadow:0 14px 34px rgba(0,0,0,.18);padding:7px}.main-suggest.on{display:block}.main-suggest-title{font-size:10px;font-weight:800;color:#71808d;padding:5px 7px}
+.search-sector-bar{display:flex;gap:5px;padding:5px 5px 7px;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid #edf0f2}
+.search-sector-chip{flex:0 0 auto;border:1px solid #dce2e7;background:#fff;border-radius:999px;padding:6px 9px;font-size:10px;font-weight:900;white-space:nowrap}
+.search-sector-chip.on{background:#fff5a8;border-color:#e0b900}
+.search-sector-chip .n{font-weight:700;color:#73808a;margin-left:3px}
+.search-sector-hint{font-size:9.5px;color:#7b8790;padding:5px 7px;background:#fafbfc;border-bottom:1px solid #edf0f2}
+.main-suggest-list.dragging{cursor:grabbing;user-select:none}
+.main-suggest-list{cursor:grab;touch-action:pan-y}.main-suggest-list{max-height:310px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}.main-suggest-item{width:100%;border:0;background:#fff;text-align:left;padding:10px 8px;border-bottom:1px solid #f0f2f4;min-height:44px}.main-suggest-item:hover,.main-suggest-item:focus{background:#fff4a3;outline:none}.main-suggest-item b{display:block;font-size:12px}.main-suggest-item small{display:block;color:#798691;font-size:10px;margin-top:2px}.main-suggest-section{position:sticky;top:0;z-index:2;background:#f6f8f9;border-bottom:1px solid #e4e8ec;padding:7px 8px;font-size:10px;font-weight:900;color:#596571}.main-suggest-help{font-size:10px;color:#7a8792;padding:5px 7px 1px}
+.sheet-bg{position:absolute;inset:0;background:rgba(0,0,0,.34);display:none;align-items:flex-end;z-index:30}.sheet-bg.on{display:flex}.sheet{width:100%;max-height:88%;overflow:auto;background:#fff;border-radius:25px 25px 0 0;padding:14px 14px calc(18px + env(safe-area-inset-bottom));overscroll-behavior:contain}.grab{width:42px;height:4px;background:#cbd2d8;border-radius:999px;margin:0 auto 11px}.sheet-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}.sheet-head h2{margin:0;font-size:16px;flex:1}.backx{border:0;background:#f2f4f6;width:44px;height:44px;border-radius:14px;font-size:22px}.section-title{font-size:11px;font-weight:900;margin:12px 0 7px}.option-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.check-card{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:800;background:#fff}.check-card.on{border-color:#e4b600;background:#fff8c7}.check-card input{accent-color:#e4b600}.year-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}.year-card{border:1px solid var(--line);border-radius:12px;padding:10px 3px;text-align:center;font-size:11px;font-weight:900;background:#fff}.year-card.on{border-color:#e4b600;background:#fff8c7}.year-card input{display:block;margin:0 auto 5px;accent-color:#e4b600}.primary{width:100%;border:0;background:var(--yellow);border-radius:12px;padding:12px;font-weight:900;margin-top:11px}.hint{font-size:10px;color:var(--muted);background:#f6f8f9;padding:8px;border-radius:10px;line-height:1.5;margin-top:8px}.menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.menu{border:1px solid #e1e6eb;background:#fff;border-radius:14px;padding:12px;text-align:left;min-height:80px}.menu strong{display:block;font-size:13px}.menu small{display:block;color:var(--muted);margin-top:4px;font-size:10.5px;line-height:1.35}
+.result{border-top:1px solid #edf0f3;margin-top:8px;padding-top:8px}.kv{display:grid;grid-template-columns:82px 1fr;gap:4px 8px;font-size:12px}.kv b{color:#4f5b66}.badge{display:inline-block;font-size:10px;font-weight:800;border-radius:999px;padding:3px 7px;background:#edf6ff;color:#245f91;margin-right:4px}.badge.warn{background:#fff2df;color:#955700}.badge.ok{background:#e5f5ec;color:#157347}.metric-card{margin-top:8px;padding:9px;border:1px solid #e5e9ed;border-radius:11px;background:#fff}.metric-head{display:flex;justify-content:space-between;gap:8px;font-size:11px}.metric-head b{font-size:12px}.mini-table{width:100%;border-collapse:collapse;margin-top:7px;font-size:10.5px}.mini-table th,.mini-table td{border-bottom:1px solid #eef1f3;padding:5px 4px;text-align:right}.mini-table th:first-child,.mini-table td:first-child{text-align:left}.trend{height:42px;margin-top:6px}.trend svg{width:100%;height:42px;overflow:visible}.statement-wrap{overflow-x:auto;margin-top:8px}.statement-table{border-collapse:collapse;min-width:520px;font-size:10px;width:100%}.statement-table th,.statement-table td{border:1px solid #e1e5e9;padding:5px 6px;text-align:right;white-space:nowrap}.statement-table th:first-child,.statement-table td:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:1}.qa{font-size:10px;background:#f7f8fa;border-radius:10px;padding:7px;margin-top:8px;color:#5c6770}
+.map-mode{padding:0;overflow:hidden;background:#c5d8df}.map-shell{height:100%;display:grid;grid-template-rows:auto 1fr auto;background:#d7e5e8}.map-head{background:#fff;padding:10px 11px;border-bottom:1px solid #dde2e6;display:flex;align-items:center;gap:7px;z-index:4}.map-head-text{flex:1;min-width:0}.map-head b{display:block;font-size:12px}.map-head small{font-size:9.5px;color:#6f7b85}.map-chip{border:0;border-radius:11px;background:#eef2f4;padding:7px 8px;font-size:10px}.map-canvas-wrap{position:relative;min-height:0}.map-canvas{position:absolute;inset:0}.map-legend{position:absolute;left:9px;bottom:145px;z-index:24;background:#fff;border:1px solid #d9e0e4;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.15);padding:0 8px 6px;width:145px;font-size:9.5px;user-select:none;touch-action:none;max-height:52%;overflow:auto}.map-legend.phone-floating{display:block}.map-legend.dragging{box-shadow:0 8px 24px rgba(0,0,0,.24);opacity:.96}.map-legend-handle{display:flex;align-items:center;justify-content:space-between;gap:6px;margin:0 -8px 3px;padding:7px 8px 6px;border-bottom:1px solid #edf1f3;border-radius:12px 12px 0 0;cursor:grab;background:#fff}.map-legend.dragging .map-legend-handle{cursor:grabbing}.map-legend-handle b{display:block;font-size:9.5px;margin:0}.map-legend-grip{font-size:13px;line-height:1;color:#96a1a9;letter-spacing:-1px}.map-legend-reset{border:0;background:transparent;padding:0 2px;font-size:10px;cursor:pointer;color:#7c8992}.map-legend-reset:hover{color:#222}.legend-row{display:flex;align-items:center;gap:6px;padding:4px 1px}.legend-row input{margin-left:auto;accent-color:#e4b600}.legend-dot{width:9px;height:9px;border-radius:50%;display:inline-block}.dot-all{background:conic-gradient(#168c8c 0 25%,#ef8b22 0 50%,#6c56c8 0 75%,#399a69 0)}.dot-prod{background:#168c8c}.dot-proc{background:#ef8b22}.dot-dist{background:#6c56c8}.dot-food{background:#399a69}.map-foot{display:flex;justify-content:space-between;padding:6px 10px;background:#fff;font-size:9px;color:#687680;border-top:1px solid #dde2e6}.company-tooltip{font-size:11px;line-height:1.45}.company-tooltip b{font-size:12px}.leaflet-tooltip{border-radius:9px;border:1px solid #d9e0e4;box-shadow:0 4px 12px rgba(0,0,0,.15)}
+@media(max-width:520px){.stage{padding:0}.phone{width:100%;height:100vh;border-radius:0;border:0}.sheet{max-height:91%}}body.big .bubble{font-size:15px}body.big .menu strong{font-size:14px}
+
+.static-pill{display:inline-block;border-radius:999px;padding:3px 7px;font-size:9.5px;font-weight:900;background:#e8f5e9;color:#186a3b;margin-left:4px}
+.data-status{font-size:10px;color:#66737e;margin-top:4px}
+.address-company-list{display:grid;gap:6px;margin-top:8px}
+.address-company-btn{border:1px solid #dfe5ea;border-radius:11px;background:#fff;text-align:left;padding:9px}
+.address-company-btn b{display:block;font-size:11.5px}.address-company-btn small{display:block;color:#74818c;margin-top:2px;font-size:10px}
+.empty-card{border:1px dashed #cfd7de;border-radius:12px;background:#fafbfc;padding:12px;font-size:11px;color:#65727d;margin-top:8px}
+
+/* v0.10b map/navigation UX */
+.map-status-banner{
+  position:absolute;right:8px;top:8px;left:auto;transform:none;
+  z-index:650;width:min(235px,calc(100% - 16px));
+  background:rgba(255,248,220,.97);border:1px solid #eed38d;color:#7a5b00;
+  border-radius:10px;box-shadow:0 3px 10px rgba(0,0,0,.11);
+  user-select:none;touch-action:none;overflow:hidden;
+}
+.map-status-banner.ok{border-color:#b5ddc2;background:#f4fff7;color:#176b3a}
+.map-status-banner.warn{border-color:#eed38d;background:#fffaf0;color:#7a5b00}
+.map-status-banner.dragging{box-shadow:0 8px 22px rgba(0,0,0,.21);opacity:.97}
+.map-status-head{
+  display:flex;align-items:center;gap:4px;min-height:28px;padding:3px 4px 3px 7px;
+  cursor:grab;background:rgba(255,255,255,.42)
+}
+.map-status-banner.dragging .map-status-head{cursor:grabbing}
+.map-status-grip{font-size:12px;line-height:1;color:#9a7b16}
+.map-status-title{flex:1;min-width:0;font-size:9px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.map-status-tools{display:flex;gap:2px;flex:0 0 auto}
+.map-status-tools button{
+  width:23px;height:23px;padding:0;border:0;border-radius:7px;
+  background:rgba(255,255,255,.78);color:inherit;font-size:12px;font-weight:900;cursor:pointer
+}
+.map-status-body{padding:0 8px 7px;font-size:9px;line-height:1.4;text-align:left}
+.map-status-banner.collapsed{width:145px}
+.map-status-banner.collapsed .map-status-body{display:none}
+.map-status-banner.hidden{display:none!important}
+.map-core-tip{min-width:235px;max-width:300px;font-size:11px;line-height:1.45}
+.map-core-tip .tip-title{font-size:13px;font-weight:900;margin-bottom:4px;color:#17212b}
+.map-core-tip .tip-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px}
+.map-core-tip .tip-badge{display:inline-block;padding:2px 6px;border-radius:999px;background:#eef3f7;font-size:9px;font-weight:900}
+.map-core-tip .tip-grid{display:grid;grid-template-columns:62px 1fr;gap:2px 7px}
+.map-core-tip .tip-grid b{color:#5c6975}
+.map-core-tip .tip-finance{margin-top:6px;border-top:1px solid #e8edf1;padding-top:5px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;text-align:center}
+.map-core-tip .tip-finance div{background:#f6f8fa;border-radius:7px;padding:5px 3px}
+.map-core-tip .tip-finance b{display:block;font-size:9px;color:#64717d}.map-core-tip .tip-finance span{font-size:10px;font-weight:900}
+.map-core-tip .tip-hint{margin-top:5px;color:#798590;font-size:9px;text-align:center}
+.multi-sector-marker{
+  display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+  color:#fff;font-size:9px;font-weight:900;border:3px solid #fff;
+  background:conic-gradient(#168c8c 0 25%,#ef8b22 0 50%,#6c56c8 0 75%,#399a69 0);
+  box-shadow:0 2px 8px rgba(0,0,0,.35)
+}
+.single-company-marker{
+  width:18px;height:18px;border-radius:50%;border:3px solid #fff;
+  box-shadow:0 2px 8px rgba(0,0,0,.35)
+}
+.marker-address-count{
+  display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
+  background:#4c7899;color:white;border:3px solid white;font-size:9px;font-weight:900;
+  box-shadow:0 2px 8px rgba(0,0,0,.35)
+}
+.map-company-sheet-summary{padding:9px;border:1px solid #e1e6eb;border-radius:12px;background:#fff;margin-bottom:7px}
+.map-company-sheet-summary h3{font-size:13px;margin:0 0 5px}
+.map-company-sheet-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:7px}
+.map-company-sheet-actions button{border:0;border-radius:9px;padding:8px;font-size:10px;font-weight:900}
+.map-company-sheet-actions .core-btn{background:#fff3a8}
+.map-company-sheet-actions .detail-btn{background:#eef2f5}
+.cluster-kafv{background:rgba(76,120,153,.22);border-radius:50%}
+.cluster-kafv div{background:#4c7899;color:#fff;border-radius:50%;display:grid;place-items:center;font-weight:900;box-shadow:0 2px 8px rgba(0,0,0,.26)}
+
+</style>
+</head>
+<body>
+<div class="stage"><main class="phone" id="phone">
+<header class="header">
+<div class="logo" aria-hidden="true"><svg viewBox="0 0 64 64"><rect x="7" y="12" width="50" height="40" rx="10" fill="#fff"/><path d="M12 24l20 14 20-14" fill="none" stroke="#3c6f8f" stroke-width="6" stroke-linecap="round"/><path d="M16 42l12-12M48 42L36 30" fill="none" stroke="#3c6f8f" stroke-width="5" stroke-linecap="round"/><path d="M26 24c5-6 13-6 18 0-5 6-13 6-18 0z" fill="#6ca9c8"/><circle cx="40" cy="23" r="1.7" fill="#fff"/></svg></div>
+<div class="brand"><div class="title">KAFV 수산기업정보 AI</div><div class="sub"><span class="dot"></span>기업지도 · FIS 재무정보 연계 · v2</div></div>
+<button class="hbtn" id="fontBtn" title="글자 크기">가</button><button class="hbtn" id="settingsBtn" title="설정">⚙</button>
+</header>
+<section class="chat" id="chat"></section>
+<nav class="quick" id="quickNav">
+<button data-group="map"><span>🗺️</span>기업지도</button>
+<button data-group="core"><span>▦</span>핵심정보</button>
+<button data-group="detail"><span>▤</span>상세정보</button>
+<button data-group="save"><span>↓</span>특허·저장</button>
+</nav>
+<form class="composer" id="composer">
+<div class="main-search-wrap" id="mainSearchWrap">
+<input id="chatInput" autocomplete="off" placeholder="기업명·업종·지역·기능 검색">
+<button class="main-drop-btn" id="mainDropBtn" type="button" title="전체 검색항목 펼치기">▼</button>
+<div class="main-suggest" id="mainSuggest">
+<div class="main-suggest-title">기업·기능 통합 선택</div>
+<div class="search-sector-bar" id="searchSectorBar"></div>
+<div class="search-sector-hint" id="searchSectorHint">부문을 선택한 뒤 목록을 휠·스크롤바·드래그하여 기업을 선택하십시오.</div>
+<div class="main-suggest-list" id="mainSuggestList"></div>
+<div class="main-suggest-help">마우스 휠·스크롤바 드래그·터치 스크롤 후 선택하십시오.</div>
+</div>
+</div>
+<button class="send" type="submit" aria-label="검색">➤</button>
+</form>
+<div class="sheet-bg" id="sheetBg"><section class="sheet" id="sheet"></section></div>
+</main></div>
+<script>
+
+const COMPANY_DB_URL="./companies.json";
+const COORD_DB_URL="./coordinates.json";
+const RELATION_DB_URL="./relations.json";
+const STATS_DB_URL="./stats.json";
+const ADDRESS_QUEUE_URL="./address_queue.json";
+
+const state={
+  company:null,listRows:[],listLoaded:false,listLoading:null,
+  coordinateByKey:new Map(),relationsByRecord:new Map(),stats:null,
+  map:null,markerLayer:null,mapRows:[],addressGroups:new Map(),
+  mapFilters:new Set(["production","processing","distribution","foodservice"]),
+  regionFilter:"전체",suggestOpen:false,lastSuggestTotal:0,searchSector:"all",suggestDragging:false
+};
+
+const chat=document.getElementById("chat");
+const sheetBg=document.getElementById("sheetBg");
+const sheet=document.getElementById("sheet");
+const input=document.getElementById("chatInput");
+const suggest=document.getElementById("mainSuggest");
+const suggestList=document.getElementById("mainSuggestList");
+const searchSectorBar=document.getElementById("searchSectorBar");
+const searchSectorHint=document.getElementById("searchSectorHint");
+const dropBtn=document.getElementById("mainDropBtn");
+
+function esc(v=""){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]))}
+function fmt(v){
+  if(v===null||v===undefined||v==="")return "-";
+  const n=Number(String(v).replace(/,/g,""));
+  return Number.isFinite(n)?n.toLocaleString("ko-KR"):esc(v)
+}
+function fmtShort(v){
+  if(v===null||v===undefined||v==="")return "-";
+  const n=Number(String(v).replace(/,/g,""));
+  if(!Number.isFinite(n))return esc(v);
+  const a=Math.abs(n);
+  if(a>=100000000)return (n/100000000).toFixed(a>=1000000000?1:2).replace(/\.0+$/,"")+"억";
+  if(a>=10000)return (n/10000).toFixed(a>=100000?1:2).replace(/\.0+$/,"")+"만";
+  return n.toLocaleString("ko-KR");
+}
+function add(html,who="bot"){
+  exitMapMode();
+  const r=document.createElement("div");r.className=`row ${who}`;r.innerHTML=`<div class="bubble">${html}</div>`;
+  chat.appendChild(r);chat.scrollTop=chat.scrollHeight;return r
+}
+function loading(label="통합 DB 불러오는 중..."){return add(`<span class="badge">조회중</span> ${esc(label)}`)}
+function setSheet(html){sheet.innerHTML=`<div class="grab"></div>${html}`;sheetBg.classList.add("on")}
+function closeSheet(){sheetBg.classList.remove("on")}
+sheetBg.addEventListener("click",e=>{if(e.target===sheetBg)closeSheet()});
+function sheetHead(title){return `<div class="sheet-head"><h2>${esc(title)}</h2><button class="backx" type="button" onclick="closeSheet()">×</button></div>`}
+function setActive(group){document.querySelectorAll("#quickNav button").forEach(b=>b.classList.toggle("active",b.dataset.group===group))}
+function leaveMapForPanel(group){
+  hideSuggest();
+  closeSheet();
+  if(chat.classList.contains("map-mode"))exitMapMode();
+  if(group)setActive(group);
+}
+function cleanName(v=""){return String(v||"").replace(/\s*\(\s*\)\s*$/,"").replace(/\s+/g," ").trim()}
+function inferRegion(a=""){
+  if(/서울|경기|인천/.test(a))return"수도권";
+  if(/대전|세종|충청|충북|충남/.test(a))return"충청";
+  if(/광주|전라|전북|전남/.test(a))return"호남";
+  if(/부산|대구|울산|경상|경북|경남/.test(a))return"영남";
+  if(/강원|제주/.test(a))return"강원·제주";
+  return"기타"
+}
+function sectorColor(k){return {production:"#168c8c",processing:"#ef8b22",distribution:"#6c56c8",foodservice:"#399a69"}[k]||"#4c7899"}
+
+async function loadStaticData(force=false){
+  if(state.listLoaded&&!force)return state.listRows;
+  if(state.listLoading&&!force)return state.listLoading;
+  state.listLoading=(async()=>{
+    const [cr,gr,rr,sr]=await Promise.all([
+      fetch(COMPANY_DB_URL,{cache:"no-cache"}),fetch(COORD_DB_URL,{cache:"no-cache"}),
+      fetch(RELATION_DB_URL,{cache:"no-cache"}),fetch(STATS_DB_URL,{cache:"no-cache"})
+    ]);
+    if(!cr.ok)throw new Error(`기업 DB HTTP ${cr.status}`);
+    if(!gr.ok)throw new Error(`좌표 DB HTTP ${gr.status}`);
+    if(!rr.ok)throw new Error(`관계 DB HTTP ${rr.status}`);
+    if(!sr.ok)throw new Error(`통계 DB HTTP ${sr.status}`);
+    const [companies,coords,relations,stats]=await Promise.all([cr.json(),gr.json(),rr.json(),sr.json()]);
+    state.listRows=(companies||[]).map(r=>({...r,companyName:cleanName(r.companyName),regionGroup:r.regionGroup||inferRegion(r.address||"")}));
+    state.coordinateByKey=new Map(
+      (coords||[]).filter(x=>x.addressKey&&Number.isFinite(Number(x.lat))&&Number.isFinite(Number(x.lng)))
+      .map(x=>[String(x.addressKey),{lat:Number(x.lat),lng:Number(x.lng),provider:x.provider||x.geocodeProvider||"static",status:x.status||x.geocodeStatus||"OK",matchedAddress:x.matchedAddress||x.geocodeMatchedAddress||""}])
+    );
+    const rm=new Map();
+    for(const x of relations||[]){const k=String(x.recordId||"");if(!rm.has(k))rm.set(k,[]);rm.get(k).push(x)}
+    state.relationsByRecord=rm;state.stats=stats||{};state.listLoaded=true;state.listLoading=null;
+    rebuildMapRows();renderSuggest(input.value||"");return state.listRows
+  })().catch(e=>{state.listLoading=null;throw e});
+  return state.listLoading
+}
+async function ensureData(){
+  try{return await loadStaticData()}
+  catch(e){add(`<h3>통합 DB 로딩 오류</h3><div class="err">${esc(e.message)}</div><div class="source">GitHub Pages 저장소 루트의 JSON 파일을 확인하십시오.</div>`);return[]}
+}
+function rebuildMapRows(){
+  state.mapRows=[];state.addressGroups=new Map();
+  for(const r of state.listRows){
+    const p=state.coordinateByKey.get(String(r.addressKey||""));if(!p)continue;
+    const normalizedSector=["production","processing","distribution","foodservice"].includes(r.sector)?r.sector:
+      (/생산|어업/.test(r.sectorGroup||r.sectorLabel||"")?"production":
+       /제조|가공/.test(r.sectorGroup||r.sectorLabel||"")?"processing":
+       /도매|소매|유통/.test(r.sectorGroup||r.sectorLabel||"")?"distribution":
+       /외식|음식점/.test(r.sectorGroup||r.sectorLabel||"")?"foodservice":r.sector);
+    const item={id:r.recordId,addressKey:r.addressKey,name:r.companyName,sector:normalizedSector,sectorLabel:r.sectorLabel,subType:r.subType,industry:r.ksicName||r.subType||"",address:r.address||r.geocodeCandidate1||"",regionGroup:r.regionGroup,sales:r.sales,operatingProfit:r.operatingProfit,netProfit:r.netProfit,representative:r.representative,sourceYear:r.sourceYear,lat:p.lat,lng:p.lng,company:r};
+    state.mapRows.push(item);
+    const k=String(r.addressKey);if(!state.addressGroups.has(k))state.addressGroups.set(k,[]);state.addressGroups.get(k).push(item)
+  }
+}
+function findRecord(recordId){return state.listRows.find(r=>String(r.recordId)===String(recordId))}
+async function selectCompanyById(recordId,show=true){
+  await ensureData();const r=findRecord(recordId);if(!r)throw new Error("통합 기업DB에서 해당 기업을 찾지 못했습니다.");
+  state.company=r;if(show)showCompany();return r
+}
+function companyKv(r){
+  return `<div class="kv"><b>기업명</b><span>${esc(r.companyName||"-")}</span><b>산업부문</b><span>${esc(r.sectorLabel||"-")}</span><b>세부업종</b><span>${esc(r.subType||"-")}</span><b>KSIC</b><span>${esc(r.ksicCode||"-")} ${esc(r.ksicName||"")}</span><b>대표자</b><span>${esc(r.representative||"-")}</span><b>주소</b><span>${esc(r.address||"-")}</span><b>기준연도</b><span>${esc(r.sourceYear||"-")}</span><b>자료원</b><span>${esc(r.source||"-")}</span></div>`
+}
+function availableYears(r){
+  if(!r)return[];
+  // KAFV 조회 규칙: 생산은 2019, FIS 기업(가공·유통·외식)은 2021~2024.
+  if(r.sector==="production")return ["2019"];
+  return ["2021","2022","2023","2024"]
+}
+function yearsHtml(years){
+  if(!years.length)return `<div class="empty-card">선택 가능한 재무 연도가 없습니다.</div>`;
+  return `<div class="section-title">② 조회 연도</div><div class="year-grid">${years.map(y=>`<label class="year-card on"><input type="checkbox" data-year="${esc(y)}" checked onchange="this.parentElement.classList.toggle('on',this.checked)">${esc(y)}</label>`).join("")}</div>`
+}
+function selectedYears(){return [...document.querySelectorAll("#sheet input[data-year]")].filter(x=>x.checked).map(x=>x.dataset.year)}
+function yearValue(r,y,field){
+  const h=r?.financialHistory||{};if(h[y]&&h[y][field]!==undefined)return h[y][field];
+  if(String(r?.sourceYear)===String(y))return r?.[field];return null
+}
+function numericValue(v){if(v===null||v===undefined||v==="")return null;const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)?n:null}
+function metricObject(r,label,field,years){
+  const values=years.map(y=>({year:y,raw:yearValue(r,y,field),numeric:numericValue(yearValue(r,y,field))})).filter(v=>v.raw!==null&&v.raw!==undefined&&v.raw!=="");
+  return {label,unit:"원자료 단위",found:values.length>0,values,years}
+}
+function spark(values){
+  const nums=values.map(v=>Number(v.numeric)).filter(Number.isFinite);if(nums.length<2)return"";
+  const min=Math.min(...nums),max=Math.max(...nums),span=max-min||1;
+  const pts=values.map((v,i)=>{const x=4+i*(92/Math.max(1,values.length-1));const y=36-((Number(v.numeric)-min)/span)*30;return`${x},${y}`}).join(" ");
+  return `<div class="trend"><svg viewBox="0 0 100 42" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="#d4a600" stroke-width="2.4"/><line x1="0" y1="38" x2="100" y2="38" stroke="#e9edf0"/></svg></div>`
+}
+function metricHtml(m){
+  if(!m?.found)return `<div class="empty-card"><b>${esc(m?.label||"재무항목")}</b> · 선택 연도에 저장된 값이 없습니다.</div>`;
+  return `<div class="metric-card"><div class="metric-head"><b>${esc(m.label)}</b><span>${esc(m.unit||"")}</span></div>${spark(m.values||[])}<table class="mini-table"><thead><tr><th>연도</th>${(m.values||[]).map(v=>`<th>${esc(v.year)}</th>`).join("")}</tr></thead><tbody><tr><td>값</td>${(m.values||[]).map(v=>`<td>${fmt(v.raw)}</td>`).join("")}</tr></tbody></table></div>`
+}
+function financialHealthHtml(r,years){
+  const rows=years.map(y=>{
+    const a=numericValue(yearValue(r,y,"assets")),l=numericValue(yearValue(r,y,"liabilities")),e=numericValue(yearValue(r,y,"equity"));
+    return {y,a,l,e,debt:(e!==null&&e!==0&&l!==null)?l/e*100:null,equityRatio:(a!==null&&a!==0&&e!==null)?e/a*100:null}
+  });
+  const any=rows.some(x=>x.a!==null||x.l!==null||x.e!==null);
+  if(!any)return `<div class="empty-card"><b>재무 건전성</b> · 선택 연도의 자산·부채·자본 값이 현재 정적 DB에 저장되어 있지 않습니다.</div>`;
+  return `<div class="metric-card"><div class="metric-head"><b>재무 건전성</b><span>결측은 -</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>연도</th><th>자산총계</th><th>부채총계</th><th>자본총계</th><th>부채비율</th><th>자기자본비율</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.y)}</td><td>${x.a===null?"-":fmt(x.a)}</td><td>${x.l===null?"-":fmt(x.l)}</td><td>${x.e===null?"-":fmt(x.e)}</td><td>${x.debt===null?"-":x.debt.toFixed(1)+"%"}</td><td>${x.equityRatio===null?"-":x.equityRatio.toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div></div>`
+}
+function trendSummaryHtml(r,years){
+  const defs=[["매출액","sales"],["영업이익","operatingProfit"],["당기순이익","netProfit"]];
+  const known=defs.reduce((n,[,k])=>n+years.filter(y=>yearValue(r,y,k)!==null&&yearValue(r,y,k)!==undefined&&yearValue(r,y,k)!=="").length,0);
+  const table=`<div class="statement-wrap"><table class="statement-table"><thead><tr><th>구분</th>${years.map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${defs.map(([lab,k])=>`<tr><td>${esc(lab)}</td>${years.map(y=>`<td>${fmt(yearValue(r,y,k))}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+  const note=known<=3&&r.sector!=="production"?`<div class="qa">FIS 기업상세의 조회 범위는 2021~2024입니다. 현재 정적 Master에는 기업에 따라 2024 핵심값만 보존되어 있어 미보존 연도는 '-'로 표시됩니다.</div>`:"";
+  return `<div class="metric-card"><div class="metric-head"><b>기간별 경영동향</b><span>${years.join(" · ")}</span></div>${table}${note}</div>`
+}
+
+function showCompany(){
+  const r=state.company;if(!r)return add("기업을 먼저 검색·선택하십시오.");
+  let html=`<h3>🏢 ${esc(r.companyName)} <span class="static-pill">정적 DB</span></h3>${companyKv(r)}`;
+  if(r.principalProduct)html+=`<div class="source">주요생산품: ${esc(r.principalProduct)}</div>`;
+  html+=`<div class="metric-card"><div class="metric-head"><b>${esc(r.sourceYear||"")} 핵심재무</b><span>보존 원문값</span></div><table class="mini-table"><tbody><tr><td>매출액</td><td>${fmt(r.sales)}</td></tr><tr><td>영업이익</td><td>${fmt(r.operatingProfit)}</td></tr><tr><td>당기순이익</td><td>${fmt(r.netProfit)}</td></tr></tbody></table></div>`;
+  const rels=state.relationsByRecord.get(String(r.recordId))||[];if(rels.length)html+=`<div class="source">2019 거래관계 ${rels.length}건 보유</div>`;
+  html+=`<div class="source">외부 기업 API 호출 없음</div>`;add(html)
+}
+function openCore(){
+  leaveMapForPanel("core");if(!state.company)return setSheet(`${sheetHead("핵심정보")}<div class="hint">먼저 기업을 선택하십시오.</div>`);
+  const years=availableYears(state.company);
+  setSheet(`${sheetHead("핵심정보 선택")}<div class="section-title">① 조회할 핵심정보</div><div class="option-grid">
+  <label class="check-card on"><input id="core-overview" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">기업개요</label>
+  <label class="check-card on"><input id="core-sales" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">매출·이익</label>
+  <label class="check-card"><input id="core-health" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">재무 건전성</label>
+  <label class="check-card"><input id="core-trend" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">기간별 경영동향</label>
+  </div>${yearsHtml(years)}<button class="primary" onclick="runCore()">선택 핵심정보 조회</button><div class="hint">${state.company.sector==="production"?"생산기업은 2019 원자료를 기준으로 조회합니다.":"FIS 기업은 2021~2024를 조회연도로 제공합니다. 현재 정적 DB에 보존되지 않은 연도·계정은 '-'로 표시합니다."}</div>`)
+}
+function runCore(){
+  const r=state.company;if(!r)return;const years=selectedYears();if(!years.length)return alert("조회 연도를 선택하십시오.");
+  const overview=document.getElementById("core-overview")?.checked;
+  const sales=document.getElementById("core-sales")?.checked;
+  const health=document.getElementById("core-health")?.checked;
+  const trend=document.getElementById("core-trend")?.checked;
+  if(!overview&&!sales&&!health&&!trend)return alert("조회할 핵심정보를 하나 이상 선택하십시오.");
+  closeSheet();
+  let html=`<h3>📊 ${esc(r.companyName)} 핵심정보</h3>`;if(overview)html+=companyKv(r);
+  if(sales){html+=metricHtml(metricObject(r,"매출액","sales",years));html+=metricHtml(metricObject(r,"영업이익","operatingProfit",years));html+=metricHtml(metricObject(r,"당기순이익","netProfit",years))}
+  if(health)html+=financialHealthHtml(r,years);
+  if(trend)html+=trendSummaryHtml(r,years);
+  html+=`<div class="source">출처: ${esc(r.source||"-")} · 결측은 0으로 대체하지 않음</div>`;add(html)
+}
+
+function statementTable(title,rows,years,r){
+  return `<div class="metric-card"><div class="metric-head"><b>${esc(title)}</b><span>${rows.length}개 계정</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>계정과목</th>${years.map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${rows.map(([lab,key])=>`<tr><td>${esc(lab)}</td>${years.map(y=>`<td>${fmt(yearValue(r,y,key))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`
+}
+function relationHtml(r){
+  const all=state.relationsByRecord.get(String(r.recordId))||[];if(!all.length)return`<div class="empty-card">저장된 구매·판매 관계가 없습니다.</div>`;
+  const make=type=>{const xs=all.filter(x=>x.relationType===type);if(!xs.length)return"";return `<div class="metric-card"><div class="metric-head"><b>${esc(type)}</b><span>${xs.length}건</span></div><table class="mini-table"><thead><tr><th>거래처</th><th>비중</th></tr></thead><tbody>${xs.map(x=>`<tr><td>${esc(x.counterpartyName)}</td><td>${x.share!==null&&x.share!==undefined?esc(x.share)+"%":"-"}</td></tr>`).join("")}</tbody></table></div>`};return make("구매처")+make("판매처")
+}
+function openDetail(){
+  leaveMapForPanel("detail");const r=state.company;if(!r)return setSheet(`${sheetHead("상세정보")}<div class="hint">먼저 기업을 선택하십시오.</div>`);
+  const years=availableYears(r);
+  if(r.sector==="production"){
+    setSheet(`${sheetHead("상세정보 선택")}<div class="section-title">① 조회할 상세정보</div><div class="option-grid">
+    <label class="check-card on"><input data-stmt="income" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">손익계산서</label>
+    <label class="check-card on"><input data-stmt="balance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">재무상태표</label>
+    <label class="check-card"><input data-stmt="cash" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">현금흐름표</label>
+    <label class="check-card on"><input data-stmt="relations" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">구매·판매관계</label></div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">선택항목 조회</button><div class="hint">생산기업은 2019 원자료와 거래관계 백업자료를 사용합니다.</div>`)
+  }else{
+    setSheet(`${sheetHead("상세정보 선택")}<div class="section-title">① 정적 백업 상세정보</div><div class="option-grid">
+    <label class="check-card on"><input data-stmt="profile" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">기업 상세</label>
+    <label class="check-card on"><input data-stmt="finance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">핵심 재무</label></div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">상세정보 조회</button><div class="hint">FIS 조회연도는 2021~2024입니다. 현재 정적 Master에 없는 연도·세부계정은 '-'로 표시합니다.</div>`)
+  }
+}
+function runDetail(){
+  const r=state.company;if(!r)return;const years=selectedYears();if(!years.length)return alert("조회 연도를 선택하십시오.");
+  const stmts=[...document.querySelectorAll("#sheet input[data-stmt]:checked")].map(x=>x.dataset.stmt);if(!stmts.length)return alert("조회할 상세정보를 하나 이상 선택하십시오.");closeSheet();
+  let html=`<h3>▤ ${esc(r.companyName)} 상세정보</h3>`;
+  if(r.sector==="production"){
+    html+=companyKv(r);
+    const defs={income:[["매출액","sales"],["매출원가","costOfSales"],["매출총이익","grossProfit"],["영업이익","operatingProfit"],["당기순이익","netProfit"]],balance:[["유동자산","currentAssets"],["비유동자산","noncurrentAssets"],["자산총계","assets"],["유동부채","currentLiabilities"],["비유동부채","noncurrentLiabilities"],["부채총계","liabilities"],["자본총계","equity"]],cash:[["기초현금","beginningCash"],["영업활동현금흐름","operatingCashFlow"],["투자활동현금흐름","investingCashFlow"],["재무활동현금흐름","financingCashFlow"],["기말현금","endingCash"]]};
+    if(stmts.includes("income"))html+=statementTable("손익계산서",defs.income,years,r);
+    if(stmts.includes("balance"))html+=statementTable("재무상태표",defs.balance,years,r);
+    if(stmts.includes("cash"))html+=statementTable("현금흐름표",defs.cash,years,r);
+    if(stmts.includes("relations"))html+=relationHtml(r)
+  }else{
+    if(stmts.includes("profile"))html+=companyKv(r);
+    if(stmts.includes("finance")){
+      html+=`<div class="metric-card"><div class="metric-head"><b>핵심 재무</b><span>통합 Master DB</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>구분</th>${years.map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${[["매출액","sales"],["영업이익","operatingProfit"],["당기순이익","netProfit"]].map(([lab,k])=>`<tr><td>${lab}</td>${years.map(y=>`<td>${fmt(yearValue(r,y,k))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+      html+=`<div class="qa">FIS 기업상세의 연도 범위는 2021~2024입니다. 현재 정적 Master에는 2024 핵심값 중심으로 저장되어 있어 미보존 연도는 '-'로 표시됩니다.</div>`
+    }
+  }
+  html+=`<div class="source">외부 기업정보 API 호출 없음</div>`;add(html)
+}
+
+function openPatent(){leaveMapForPanel("save");setSheet(`${sheetHead("특허정보")}<div class="empty-card">현재 통합 Master에 특허 상세 레코드는 별도 백업되어 있지 않습니다. 임의 값을 만들지 않습니다.</div>`)}
+function downloadCsv(){
+  const r=state.company;if(!r)return alert("먼저 기업을 선택하십시오.");
+  const flat={recordId:r.recordId,기업명:r.companyName,산업부문:r.sectorLabel,세부업종:r.subType,KSIC:r.ksicCode,KSIC명:r.ksicName,대표자:r.representative,주소:r.address,기준연도:r.sourceYear,매출액:r.sales,영업이익:r.operatingProfit,당기순이익:r.netProfit,자산총계:r.assets,부채총계:r.liabilities,자본총계:r.equity,자료원:r.source};
+  const headers=Object.keys(flat),q=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+headers.map(q).join(",")+"\r\n"+headers.map(h=>q(flat[h])).join(",");
+  const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${String(r.companyName||"기업").replace(/[\\/:*?"<>|]/g,"_")}_수산기업정보.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);closeSheet()
+}
+function showHelp(){leaveMapForPanel("save");setSheet(`${sheetHead("앱 사용법")}<div class="hint" style="font-size:11px">① 기업명·업종·지역으로 검색<br><br>② 기업지도에서 산업부문 필터<br><br>③ <b>마커에 마우스를 올리면 핵심정보 즉시 표시</b><br><br>④ 마커 클릭 시 지도를 닫지 않고 기업 선택창 표시<br><br>⑤ 동일 주소에 여러 기업이 있으면 한 마커에서 기업목록 선택<br><br>⑥ 핵심정보·상세정보는 정적 백업자료 사용<br><br>⑦ 지도 조건은 특허·저장 → 지도 조건 선택에서 설정</div>`)}
+function showDataPrinciples(){leaveMapForPanel("save");setSheet(`${sheetHead("데이터 원칙")}<div class="hint" style="font-size:11px"><b>정적 DB 운영</b><br>앱 실행 중 FIS·Worker·지오코딩 API를 호출하지 않습니다.<br><br><b>좌표</b><br>사전에 생성한 coordinates.json의 검증 좌표만 사용합니다.<br><br><b>동일주소</b><br>가락시장 등 한 주소에 여러 기업이 있으면 임의로 흩뿌리지 않고 동일 위치에서 묶어 표시합니다.</div>`)}
+function showDbStatus(){
+  leaveMapForPanel("");const s=state.stats||{};setSheet(`${sheetHead("정적 DB 현황")}<div class="kv"><b>기업 레코드</b><span>${fmt(s.records||state.listRows.length)}</span><b>생산</b><span>${fmt(s.production)}</span><b>식품제조</b><span>${fmt(s.processing)}</span><b>도매·소매</b><span>${fmt(s.distribution)}</span><b>외식</b><span>${fmt(s.foodservice)}</span><b>고유주소</b><span>${fmt(s.uniqueAddresses)}</span><b>좌표 확보</b><span>${fmt(state.coordinateByKey.size)}</span><b>지도표시 기업</b><span>${fmt(state.mapRows.length)}</span></div><button class="primary" onclick="reloadDb()">DB 다시 불러오기</button><div class="hint">현재 coordinates.json의 성공좌표를 사용합니다. 실패주소는 후속 보정 후 좌표파일만 교체하면 됩니다.</div>`)
+}
+async function reloadDb(){closeSheet();state.listLoaded=false;state.listLoading=null;const n=loading("정적 DB를 다시 불러오는 중...");try{await loadStaticData(true);n.remove();add(`<span class="badge ok">완료</span> 통합 DB ${fmt(state.listRows.length)}개를 다시 불러왔습니다.`)}catch(e){n.remove();add(`<div class="err">${esc(e.message)}</div>`)}}
+function openSettings(){showDbStatus()}
+function openSave(){leaveMapForPanel("save");setSheet(`${sheetHead("특허·저장")}<div class="menu-grid"><button class="menu" onclick="openPatent()"><strong>▣ 특허정보 선택</strong><small>보존된 특허자료 확인</small></button><button class="menu" onclick="downloadCsv()"><strong>CSV 내려받기</strong><small>현재 선택한 자료를 로컬 저장</small></button><button class="menu" onclick="openMapConditions()"><strong>지도 조건 선택</strong><small>공급사슬·지역 체크</small></button><button class="menu" onclick="showHelp()"><strong>앱 사용법</strong><small>지도·검색·기업정보 이용 안내</small></button><button class="menu" onclick="showDataPrinciples()"><strong>데이터 원칙</strong><small>주소·재무·정적DB 처리 기준</small></button></div>`)}
+function openMapConditions(){setSheet(`${sheetHead("지도 조건 선택")}<div class="section-title">산업 부문</div><div class="option-grid">${[["production","생산"],["processing","식품제조업"],["distribution","도매·소매업"],["foodservice","외식업"]].map(([k,n])=>`<label class="check-card ${state.mapFilters.has(k)?"on":""}"><input type="checkbox" data-map-sector="${k}" ${state.mapFilters.has(k)?"checked":""} onchange="this.parentElement.classList.toggle('on',this.checked)">${n}</label>`).join("")}</div><div class="section-title">지역</div><div class="option-grid">${["전체","수도권","충청","호남","영남","강원·제주"].map(r=>`<label class="check-card ${state.regionFilter===r?"on":""}"><input type="radio" name="map-region" value="${r}" ${state.regionFilter===r?"checked":""} onchange="updateMapRegionCards()">${r}</label>`).join("")}</div><button class="primary" onclick="applyMapConditions()">지도 조건 적용</button><div class="hint">지도 상단의 조건 버튼은 제거했습니다. 지도 조건은 이 메뉴에서만 설정합니다.</div>`)}
+function updateMapRegionCards(){document.querySelectorAll('#sheet input[name="map-region"]').forEach(x=>x.closest('.check-card')?.classList.toggle('on',x.checked))}
+
+function applyMapConditions(){state.mapFilters=new Set([...document.querySelectorAll("#sheet input[data-map-sector]:checked")].map(x=>x.dataset.mapSector));state.regionFilter=document.querySelector('#sheet input[name="map-region"]:checked')?.value||"전체";closeSheet();if(state.map){renderMapRows();fitCompanies()}else openMap()}
+function mapViewHtml(){
+  return `<div class="map-shell"><div class="map-head"><div class="map-head-text"><b>대한민국 수산기업 지도</b><small id="mapDirectoryStatus">정적 DB 연결 중...</small></div><button class="map-chip" id="mapCountChip">0개</button><button class="map-chip" id="mapCoordChip" onclick="showCoordinateStatus()">좌표</button><button class="map-chip" onclick="fitKorea()">⛶</button></div><div class="map-canvas-wrap"><div id="companyMap" class="map-canvas"></div><div id="mapStatusBanner" class="map-status-banner warn collapsed hidden">
+  <div class="map-status-head" id="mapStatusHandle" title="잡고 이동">
+    <span class="map-status-grip">⠿</span>
+    <span class="map-status-title">좌표 DB</span>
+    <span class="map-status-tools">
+      <button type="button" id="mapStatusCollapse" title="펼치기">+</button>
+      <button type="button" id="mapStatusClose" title="숨기기">×</button>
+    </span>
+  </div>
+  <div class="map-status-body" id="mapStatusBody"></div>
+</div></div><div class="map-foot"><span>마우스 온: 핵심정보</span><span>클릭: 기업선택 · 확대</span></div></div>`
+}
+function mountFloatingMapLegend(){
+  const phone=document.getElementById("phone");if(!phone)return;
+  document.getElementById("mapLegend")?.remove();
+  const legend=document.createElement("div");legend.className="map-legend phone-floating";legend.id="mapLegend";
+  legend.innerHTML=`<div class="map-legend-handle" id="mapLegendHandle" title="잡고 이동"><b>산업 부문</b><span class="map-legend-grip">⠿</span><button type="button" class="map-legend-reset" id="mapLegendReset" title="기본 위치로">↺</button></div>${legendRows()}`;
+  phone.appendChild(legend);initDraggableMapLegend()
+}
+
+function legendRows(){const rows=[["all","전체","dot-all"],["production","생산","dot-prod"],["processing","식품제조업","dot-proc"],["distribution","도매·소매업","dot-dist"],["foodservice","외식업","dot-food"]],all=state.mapFilters.size===4;return rows.map(([k,n,d])=>`<label class="legend-row"><span class="legend-dot ${d}"></span>${n}<input type="checkbox" data-legend="${k}" ${k==="all"?(all?"checked":""):(state.mapFilters.has(k)?"checked":"")} onchange="legendChange('${k}',this.checked)"></label>`).join("")}
+function enterMapMode(){chat.classList.add("map-mode");chat.innerHTML=mapViewHtml()}
+function exitMapMode(){document.getElementById("mapLegend")?.remove();if(chat.classList.contains("map-mode")){chat.classList.remove("map-mode");chat.innerHTML="";if(state.map){state.map.remove()}state.map=null;state.markerLayer=null}}
+async function openMap(){
+  setActive("map");closeSheet();hideSuggest();
+  if(chat.classList.contains("map-mode"))exitMapMode();
+  await ensureData();
+  enterMapMode();
+  await new Promise(r=>requestAnimationFrame(()=>r()));
+  state.map=L.map("companyMap",{zoomControl:true,preferCanvas:true}).setView([36.3,127.8],6.4);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(state.map);
+  if(typeof L.markerClusterGroup==="function"){
+    state.markerLayer=L.markerClusterGroup({
+      chunkedLoading:true,showCoverageOnHover:false,zoomToBoundsOnClick:true,
+      spiderfyOnMaxZoom:true,disableClusteringAtZoom:16,maxClusterRadius:52,
+      iconCreateFunction:cluster=>{
+        const n=cluster.getChildCount(),size=n<10?34:n<100?40:46;
+        return L.divIcon({html:`<div style="width:${size-8}px;height:${size-8}px">${n}</div>`,className:"cluster-kafv",iconSize:L.point(size,size)})
+      }
+    });
+  }else{
+    console.warn("Leaflet.markercluster 로드 실패 - 일반 마커 레이어로 대체합니다.");
+    state.markerLayer=L.layerGroup();
+  }
+  state.map.addLayer(state.markerLayer);
+  renderMapRows();
+  mountFloatingMapLegend();
+  initDraggableMapStatus();
+  state.map.invalidateSize();
+  if(visibleMapRows().length)fitCompanies(); else fitKorea();
+  updateMapBanner()
+}
+
+function initDraggableMapStatus(){
+  const wrap=document.querySelector(".map-canvas-wrap");
+  const panel=document.getElementById("mapStatusBanner");
+  const handle=document.getElementById("mapStatusHandle");
+  const collapse=document.getElementById("mapStatusCollapse");
+  const close=document.getElementById("mapStatusClose");
+  if(!wrap||!panel||!handle)return;
+
+  panel.classList.add("hidden");
+
+  // 지도 기본화면에서는 좌표 안내박스를 표시하지 않는다.
+  try{
+    const savedCollapsed=sessionStorage.getItem("kafvMapStatusCollapsed");
+    const collapsed=savedCollapsed===null ? true : savedCollapsed==="1";
+    panel.classList.toggle("collapsed",collapsed);
+    if(collapse){
+      collapse.textContent=collapsed?"+":"―";
+      collapse.title=collapsed?"펼치기":"접기";
+    }
+    const saved=JSON.parse(sessionStorage.getItem("kafvMapStatusPos")||"null");
+    if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){
+      panel.style.right="auto";
+      panel.style.left=saved.x+"px";
+      panel.style.top=saved.y+"px";
+    }
+  }catch{}
+
+  const clamp=()=>{
+    const wr=wrap.getBoundingClientRect();
+    const pr=panel.getBoundingClientRect();
+    let x,y;
+    if(panel.style.left){
+      x=parseFloat(panel.style.left);
+      y=parseFloat(panel.style.top)||8;
+    }else{
+      x=Math.max(4,wr.width-pr.width-8);
+      y=8;
+      panel.style.right="auto";
+    }
+    x=Math.max(4,Math.min(x,Math.max(4,wr.width-pr.width-4)));
+    y=Math.max(4,Math.min(y,Math.max(4,wr.height-pr.height-4)));
+    panel.style.left=x+"px";
+    panel.style.top=y+"px";
+    return {x,y};
+  };
+
+  requestAnimationFrame(clamp);
+
+  let drag=null;
+  handle.onpointerdown=e=>{
+    if(e.target.closest("button"))return;
+    if(e.pointerType==="mouse"&&e.button!==0)return;
+    const pr=panel.getBoundingClientRect();
+    drag={id:e.pointerId,dx:e.clientX-pr.left,dy:e.clientY-pr.top};
+    panel.classList.add("dragging");
+    try{handle.setPointerCapture(e.pointerId)}catch{}
+    e.preventDefault();e.stopPropagation();
+  };
+  handle.onpointermove=e=>{
+    if(!drag||drag.id!==e.pointerId)return;
+    const wr=wrap.getBoundingClientRect(),pr=panel.getBoundingClientRect();
+    let x=e.clientX-wr.left-drag.dx;
+    let y=e.clientY-wr.top-drag.dy;
+    x=Math.max(4,Math.min(x,Math.max(4,wr.width-pr.width-4)));
+    y=Math.max(4,Math.min(y,Math.max(4,wr.height-pr.height-4)));
+    panel.style.right="auto";
+    panel.style.left=x+"px";
+    panel.style.top=y+"px";
+    e.preventDefault();e.stopPropagation();
+  };
+  const end=e=>{
+    if(!drag||drag.id!==e.pointerId)return;
+    panel.classList.remove("dragging");
+    const p=clamp();
+    try{sessionStorage.setItem("kafvMapStatusPos",JSON.stringify(p))}catch{}
+    try{handle.releasePointerCapture(e.pointerId)}catch{}
+    drag=null;
+    e.preventDefault();e.stopPropagation();
+  };
+  handle.onpointerup=end;
+  handle.onpointercancel=end;
+
+  if(collapse){
+    collapse.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      panel.classList.toggle("collapsed");
+      const isCollapsed=panel.classList.contains("collapsed");
+      collapse.textContent=isCollapsed?"+":"―";
+      collapse.title=isCollapsed?"펼치기":"접기";
+      try{sessionStorage.setItem("kafvMapStatusCollapsed",isCollapsed?"1":"0")}catch{}
+      requestAnimationFrame(()=>{
+        const p=clamp();
+        try{sessionStorage.setItem("kafvMapStatusPos",JSON.stringify(p))}catch{}
+      });
+    };
+  }
+  if(close){
+    close.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      panel.classList.add("hidden");
+    };
+  }
+
+  // 버튼/패널 조작을 Leaflet 지도 드래그로 전달하지 않음.
+  panel.addEventListener("click",e=>e.stopPropagation());
+  panel.addEventListener("dblclick",e=>e.stopPropagation());
+  panel.addEventListener("wheel",e=>e.stopPropagation(),{passive:true});
+}
+
+function initDraggableMapLegend(){
+  const wrap=document.getElementById("phone");
+  const legend=document.getElementById("mapLegend");
+  const handle=document.getElementById("mapLegendHandle");
+  const reset=document.getElementById("mapLegendReset");
+  if(!wrap||!legend||!handle)return;
+  try{
+    const saved=JSON.parse(localStorage.getItem("kafvMapLegendPhonePos")||"null");
+    if(saved&&Number.isFinite(saved.x)&&Number.isFinite(saved.y)){
+      legend.style.left=saved.x+"px";legend.style.top=saved.y+"px";legend.style.bottom="auto"
+    }
+  }catch{}
+  const clamp=()=>{
+    const wr=wrap.getBoundingClientRect(),lr=legend.getBoundingClientRect();
+    let x=parseFloat(legend.style.left),y=parseFloat(legend.style.top);
+    if(!Number.isFinite(x))x=9;
+    if(!Number.isFinite(y))y=Math.max(70,wr.height-lr.height-145);
+    x=Math.max(4,Math.min(x,Math.max(4,wr.width-lr.width-4)));
+    y=Math.max(4,Math.min(y,Math.max(4,wr.height-lr.height-4)));
+    legend.style.left=x+"px";legend.style.top=y+"px";legend.style.bottom="auto";return{x,y}
+  };
+  requestAnimationFrame(()=>{
+    if(!legend.style.top){const wr=wrap.getBoundingClientRect(),lr=legend.getBoundingClientRect();legend.style.left=(lr.left-wr.left)+"px";legend.style.top=(lr.top-wr.top)+"px";legend.style.bottom="auto"}
+    clamp()
+  });
+  let drag=null;
+  handle.onpointerdown=e=>{
+    if(e.target.closest("#mapLegendReset"))return;if(e.pointerType==="mouse"&&e.button!==0)return;
+    const wr=wrap.getBoundingClientRect(),lr=legend.getBoundingClientRect();
+    drag={pointerId:e.pointerId,dx:e.clientX-lr.left,dy:e.clientY-lr.top};legend.classList.add("dragging");
+    try{handle.setPointerCapture(e.pointerId)}catch{};e.preventDefault();e.stopPropagation()
+  };
+  handle.onpointermove=e=>{
+    if(!drag||drag.pointerId!==e.pointerId)return;const wr=wrap.getBoundingClientRect(),lr=legend.getBoundingClientRect();
+    let x=e.clientX-wr.left-drag.dx,y=e.clientY-wr.top-drag.dy;
+    x=Math.max(4,Math.min(x,Math.max(4,wr.width-lr.width-4)));y=Math.max(4,Math.min(y,Math.max(4,wr.height-lr.height-4)));
+    legend.style.left=x+"px";legend.style.top=y+"px";legend.style.bottom="auto";e.preventDefault();e.stopPropagation()
+  };
+  const end=e=>{
+    if(!drag||drag.pointerId!==e.pointerId)return;legend.classList.remove("dragging");const p=clamp();
+    try{localStorage.setItem("kafvMapLegendPhonePos",JSON.stringify(p))}catch{};try{handle.releasePointerCapture(e.pointerId)}catch{};drag=null;e.preventDefault();e.stopPropagation()
+  };
+  handle.onpointerup=end;handle.onpointercancel=end;
+  legend.querySelectorAll("input,label,button").forEach(el=>{el.addEventListener("pointerdown",e=>e.stopPropagation());el.addEventListener("click",e=>e.stopPropagation())});
+  if(reset){reset.onclick=e=>{e.preventDefault();e.stopPropagation();legend.style.left="9px";legend.style.top="auto";legend.style.bottom="145px";try{localStorage.removeItem("kafvMapLegendPhonePos")}catch{};requestAnimationFrame(()=>{const wr=wrap.getBoundingClientRect(),lr=legend.getBoundingClientRect();legend.style.left=(lr.left-wr.left)+"px";legend.style.top=(lr.top-wr.top)+"px";legend.style.bottom="auto";clamp()})}}
+  if(!window.__kafvPhoneLegendResizeBound){window.addEventListener("resize",()=>{if(document.getElementById("mapLegend"))clamp()});window.__kafvPhoneLegendResizeBound=true}
+}
+
+function legendChange(k,checked){
+  const sectors=["production","processing","distribution","foodservice"];
+  if(k==="all")state.mapFilters=checked?new Set(sectors):new Set();
+  else checked?state.mapFilters.add(k):state.mapFilters.delete(k);
+  document.querySelectorAll("[data-legend]").forEach(x=>{
+    const key=x.dataset.legend;
+    x.checked=key==="all"?state.mapFilters.size===4:state.mapFilters.has(key);
+  });
+  renderMapRows();
+}
+function regionOk(r){return state.regionFilter==="전체"||r.regionGroup===state.regionFilter}
+function visibleMapRows(){return state.mapRows.filter(r=>state.mapFilters.has(r.sector)&&regionOk(r))}
+function groupedVisible(){const m=new Map();for(const r of visibleMapRows()){const k=String(r.addressKey||`${r.lat},${r.lng}`);if(!m.has(k))m.set(k,[]);m.get(k).push(r)}return m}
+function coreTooltip(rows){
+  const r=rows[0];
+  if(rows.length===1){
+    return `<div class="map-core-tip"><div class="tip-title">${esc(r.name)}</div><div class="tip-badges"><span class="tip-badge">${esc(r.sectorLabel)}</span><span class="tip-badge">${esc(r.sourceYear||"-")}</span></div><div class="tip-grid"><b>세부업종</b><span>${esc(r.subType||r.industry||"-")}</span><b>대표자</b><span>${esc(r.representative||"-")}</span><b>주소</b><span>${esc(r.address||"-")}</span></div><div class="tip-finance"><div><b>매출</b><span>${fmtShort(r.sales)}</span></div><div><b>영업이익</b><span>${fmtShort(r.operatingProfit)}</span></div><div><b>순이익</b><span>${fmtShort(r.netProfit)}</span></div></div><div class="tip-hint">클릭하면 기업을 선택합니다.</div></div>`
+  }
+  const counts={};for(const x of rows)counts[x.sectorLabel]=(counts[x.sectorLabel]||0)+1;
+  return `<div class="map-core-tip"><div class="tip-title">동일 주소 ${rows.length}개 기업</div><div class="tip-badges">${Object.entries(counts).map(([k,v])=>`<span class="tip-badge">${esc(k)} ${v}</span>`).join("")}</div><div class="tip-grid"><b>주소</b><span>${esc(r.address||"-")}</span><b>기업</b><span>${rows.slice(0,4).map(x=>esc(x.name)).join("<br>")}${rows.length>4?`<br>외 ${rows.length-4}개`:""}</span></div><div class="tip-hint">클릭하면 이 주소의 기업목록을 엽니다.</div></div>`
+}
+function markerForGroup(rows){
+  const r=rows[0],sectors=[...new Set(rows.map(x=>x.sector))];
+  let icon;
+  if(rows.length===1){
+    icon=L.divIcon({className:"",html:`<div class="single-company-marker" style="background:${sectorColor(r.sector)}"></div>`,iconSize:[18,18],iconAnchor:[9,9]})
+  }else if(sectors.length>1){
+    icon=L.divIcon({className:"",html:`<div class="multi-sector-marker">${rows.length}</div>`,iconSize:[28,28],iconAnchor:[14,14]})
+  }else{
+    icon=L.divIcon({className:"",html:`<div class="marker-address-count" style="background:${sectorColor(sectors[0])}">${rows.length}</div>`,iconSize:[28,28],iconAnchor:[14,14]})
+  }
+  const m=L.marker([r.lat,r.lng],{icon,title:rows.length===1?r.name:`${rows.length}개 기업`});
+  m.bindTooltip(coreTooltip(rows),{direction:"top",offset:[0,-8],opacity:.99,sticky:false,className:"company-tooltip"});
+  m.on("click",()=>{state.map.setView([r.lat,r.lng],Math.max(state.map.getZoom(),13));openMapCompanySheet(rows)});
+  return m
+}
+function renderMapRows(){
+  if(!state.markerLayer)return;state.markerLayer.clearLayers();
+  const markers=[];for(const rows of groupedVisible().values())markers.push(markerForGroup(rows));
+  state.markerLayer.addLayers(markers);updateMapCount();updateMapBanner()
+}
+function openMapCompanySheet(rows){
+  const one=rows.length===1;
+  const body=rows.slice(0,80).map(r=>`<div class="map-company-sheet-summary"><h3>${esc(r.name)}</h3><div class="kv"><b>산업부문</b><span>${esc(r.sectorLabel)}</span><b>세부업종</b><span>${esc(r.subType||"-")}</span><b>대표자</b><span>${esc(r.representative||"-")}</span><b>매출액</b><span>${fmt(r.sales)}</span><b>영업이익</b><span>${fmt(r.operatingProfit)}</span><b>순이익</b><span>${fmt(r.netProfit)}</span></div><div class="map-company-sheet-actions"><button class="core-btn" onclick="chooseMapCompany('${esc(r.id)}','core')">핵심정보</button><button class="detail-btn" onclick="chooseMapCompany('${esc(r.id)}','detail')">상세정보</button></div></div>`).join("");
+  setSheet(`${sheetHead(one?"기업정보":`동일주소 기업 ${rows.length}개`)}${one?"":`<div class="hint">${esc(rows[0].address||"")}</div>`}${body}${rows.length>80?`<div class="hint">80개까지 표시했습니다. 나머지는 하단 기업검색을 이용하십시오.</div>`:""}`)
+}
+function chooseMapCompany(recordId,mode){
+  const r=findRecord(recordId);if(!r)return;state.company=r;closeSheet();
+  if(mode==="core")openCore();else openDetail()
+}
+function updateMapCount(){
+  const chip=document.getElementById("mapCountChip");
+  const coordChip=document.getElementById("mapCoordChip");
+  const status=document.getElementById("mapDirectoryStatus");
+  const visible=visibleMapRows().length,g=groupedVisible().size;
+  if(chip)chip.textContent=`${fmt(g)}곳`;
+  if(coordChip)coordChip.textContent=`좌표 ${fmt(state.coordinateByKey.size)}`;
+  if(status)status.textContent=`기업 ${fmt(state.listRows.length)}개 · 표시기업 ${fmt(visible)}개 · 마커 ${fmt(g)}곳 · 좌표기업 ${fmt(state.mapRows.length)}개`
+}
+function updateMapBanner(){
+  const el=document.getElementById("mapStatusBanner");
+  const title=document.querySelector("#mapStatusBanner .map-status-title");
+  const body=document.getElementById("mapStatusBody");
+  if(!el||!body)return;
+  const total=Number(state.stats?.uniqueAddresses||0),done=state.coordinateByKey.size;
+  if(title)title.textContent=`좌표 DB ${fmt(done)} / ${fmt(total)}`;
+  if(done>=total&&total>0){el.className="map-status-banner ok collapsed hidden";body.innerHTML=`고유주소 ${fmt(done)}개 좌표 확보 완료`}
+  else{el.className="map-status-banner warn collapsed hidden";body.innerHTML=`성공좌표 ${fmt(done)}개 / 고유주소 ${fmt(total)}개 · 좌표 미확보 주소는 지도에서 제외하며 후속 QA에서 보정합니다.`}
+}
+
+function fitCompanies(){const rows=visibleMapRows();if(!state.map||!rows.length)return fitKorea();state.map.fitBounds(L.latLngBounds(rows.map(r=>[r.lat,r.lng])),{padding:[30,30],maxZoom:13})}
+function fitKorea(){state.map?.setView([36.3,127.8],6.4)}
+function showCoordinateStatus(){setSheet(`${sheetHead("좌표 DB 현황")}<div class="kv"><b>기업 전체</b><span>${fmt(state.listRows.length)}</span><b>고유주소</b><span>${fmt(state.stats?.uniqueAddresses)}</span><b>좌표 주소</b><span>${fmt(state.coordinateByKey.size)}</span><b>좌표 기업</b><span>${fmt(state.mapRows.length)}</span><b>미확보 주소</b><span>${fmt(Math.max(0,Number(state.stats?.uniqueAddresses||0)-state.coordinateByKey.size))}</span></div><div class="hint">현재 확보된 성공좌표를 우선 지도에 사용합니다. 좌표 미확보 주소는 별도 실패목록으로 보관하여 후속 보정합니다.</div>`) }
+
+const FEATURE_SEARCH_ITEMS=[
+  {section:"기능",title:"기업지도",sub:"전국 수산기업 분포·산업부문",action:"map"},
+  {section:"기능",title:"핵심정보",sub:"기업개요·핵심재무 선택",action:"core"},
+  {section:"기능",title:"상세정보",sub:"재무·거래관계·기업상세",action:"detail"},
+  {section:"기능",title:"특허·저장",sub:"특허정보·CSV·지도조건",action:"save"}
+];
+const SEARCH_SECTORS=[
+  {key:"all",label:"전체"},
+  {key:"production",label:"생산"},
+  {key:"processing",label:"가공"},
+  {key:"distribution",label:"유통"},
+  {key:"foodservice",label:"외식"}
+];
+function sectorCount(key){
+  if(key==="all")return state.listRows.length;
+  return state.listRows.filter(r=>r.sector===key).length
+}
+function renderSearchSectorBar(){
+  if(!searchSectorBar)return;
+  searchSectorBar.innerHTML=SEARCH_SECTORS.map(s=>
+    `<button type="button" class="search-sector-chip ${state.searchSector===s.key?"on":""}" data-search-sector="${s.key}">
+      ${s.label}<span class="n">${fmt(sectorCount(s.key))}</span>
+    </button>`
+  ).join("");
+  searchSectorBar.querySelectorAll("[data-search-sector]").forEach(b=>b.onclick=()=>{
+    state.searchSector=b.dataset.searchSector;
+    renderSearchSectorBar();
+    renderSuggest(input.value);
+    suggestList.scrollTop=0;
+  });
+  if(searchSectorHint){
+    const lab=SEARCH_SECTORS.find(x=>x.key===state.searchSector)?.label||"전체";
+    searchSectorHint.textContent=`${lab} 기업 · 휠/스크롤바/마우스 드래그/터치 드래그 후 클릭`;
+  }
+}
+function companySearchItem(r){
+  return {
+    section:`기업 · ${r.sectorLabel}`,
+    title:r.companyName,
+    sub:`${r.subType||r.ksicName||"수산기업"} · ${r.regionGroup}${r.sales!==null&&r.sales!==undefined?` · 매출 ${fmt(r.sales)}`:""}`,
+    action:`select:${r.recordId}`
+  }
+}
+function searchItems(q=""){
+  const s=q.trim().toLowerCase();
+  const tokens=s.split(/\s+/).filter(Boolean);
+  const matched=state.listRows.filter(r=>{
+    if(state.searchSector!=="all" && r.sector!==state.searchSector)return false;
+    return !tokens.length || tokens.every(t=>(r.searchText||"").includes(t));
+  });
+  state.lastSuggestTotal=matched.length;
+
+  let companyItems=[];
+  if(state.searchSector==="all"){
+    // DB 배열 앞부분 편향 제거: 생산/가공/유통/외식 각각 최대 60개씩 표시
+    const keys=["production","processing","distribution","foodservice"];
+    for(const key of keys){
+      companyItems.push(...matched.filter(r=>r.sector===key).slice(0,60).map(companySearchItem));
+    }
+  }else{
+    // 선택 부문은 충분히 스크롤할 수 있게 최대 300개 표시
+    companyItems=matched.slice(0,300).map(companySearchItem);
+  }
+
+  return state.searchSector==="all"
+    ? [...companyItems,...FEATURE_SEARCH_ITEMS]
+    : companyItems;
+}
+function renderSuggest(q=""){
+  renderSearchSectorBar();
+  const arr=searchItems(q);
+  let last="";
+  suggestList.innerHTML=arr.map(x=>{
+    let h="";
+    if(x.section!==last){
+      last=x.section;
+      h=`<div class="main-suggest-section">${esc(last)}</div>`
+    }
+    return h+`<button type="button" class="main-suggest-item" data-action="${esc(x.action)}"><b>${esc(x.title)}</b><small>${esc(x.sub)}</small></button>`
+  }).join("") || `<div class="hint">${state.listLoaded?"일치하는 기업이 없습니다.":"통합 DB를 불러오는 중입니다."}</div>`;
+
+  const limit=state.searchSector==="all"?240:300;
+  if(state.lastSuggestTotal>limit){
+    suggestList.insertAdjacentHTML("beforeend",
+      `<div class="hint">검색결과 ${fmt(state.lastSuggestTotal)}개 · 현재 ${fmt(Math.min(limit,state.lastSuggestTotal))}개 표시 · 검색어를 입력하면 더 빠르게 찾을 수 있습니다.</div>`);
+  }
+  suggestList.querySelectorAll("[data-action]").forEach(b=>b.onclick=e=>{
+    if(state.suggestDragging){e.preventDefault();return}
+    runAction(b.dataset.action)
+  })
+}
+function showSuggest(){
+  if(chat.classList.contains("map-mode")){exitMapMode();setActive("")}
+  renderSuggest(input.value);suggest.classList.add("on");dropBtn.classList.add("open");state.suggestOpen=true
+}
+function hideSuggest(){suggest.classList.remove("on");dropBtn.classList.remove("open");state.suggestOpen=false}
+async function runAction(a){hideSuggest();input.value="";if(String(a).startsWith("select:"))return selectCompanyById(String(a).slice(7));if(a==="map")return openMap();if(a==="core")return openCore();if(a==="detail")return openDetail();if(a==="save")return openSave();if(a==="csv")return downloadCsv();if(a==="db")return showDbStatus()}
+let suggestDrag={active:false,startY:0,startScroll:0,moved:false};
+suggestList.addEventListener("pointerdown",e=>{
+  if(e.pointerType==="mouse" && e.button!==0)return;
+  suggestDrag={active:true,startY:e.clientY,startScroll:suggestList.scrollTop,moved:false,pointerId:e.pointerId};
+  state.suggestDragging=false;
+});
+suggestList.addEventListener("pointermove",e=>{
+  if(!suggestDrag.active)return;
+  const dy=e.clientY-suggestDrag.startY;
+  if(Math.abs(dy)>6&&!suggestDrag.moved){
+    suggestDrag.moved=true;
+    state.suggestDragging=true;
+    suggestList.classList.add("dragging");
+    try{suggestList.setPointerCapture(e.pointerId)}catch{}
+  }
+  if(suggestDrag.moved){
+    suggestList.scrollTop=suggestDrag.startScroll-dy;
+    e.preventDefault();
+  }
+});
+function endSuggestDrag(e){
+  if(!suggestDrag.active)return;
+  const moved=suggestDrag.moved;
+  suggestDrag.active=false;
+  suggestList.classList.remove("dragging");
+  if(moved){try{suggestList.releasePointerCapture(e.pointerId)}catch{}}
+  setTimeout(()=>{state.suggestDragging=false},moved?80:0);
+}
+suggestList.addEventListener("pointerup",endSuggestDrag);
+suggestList.addEventListener("pointercancel",endSuggestDrag);
+
+dropBtn.addEventListener("click",()=>state.suggestOpen?hideSuggest():showSuggest());input.addEventListener("focus",showSuggest);input.addEventListener("input",()=>{renderSuggest(input.value);suggest.classList.add("on")});document.addEventListener("click",e=>{if(!document.getElementById("mainSearchWrap").contains(e.target))hideSuggest()});
+document.getElementById("composer").addEventListener("submit",async e=>{e.preventDefault();const q=input.value.trim();if(!q)return showSuggest();add(esc(q),"user");input.value="";hideSuggest();const s=q.toLowerCase();if(s.includes("지도"))return openMap();if(s.includes("핵심")||s.includes("매출")||s.includes("이익"))return openCore();if(s.includes("상세")||s.includes("재무")||s.includes("거래"))return openDetail();if(s.includes("csv")||s.includes("저장"))return downloadCsv();await ensureData();const tokens=s.split(/\s+/).filter(Boolean),matches=state.listRows.filter(r=>(state.searchSector==="all"||r.sector===state.searchSector)&&tokens.every(t=>(r.searchText||"").includes(t)));if(matches.length===1)return selectCompanyById(matches[0].recordId);if(matches.length>1){input.value=q;showSuggest();return}add("일치하는 기업이 없습니다.")});
+document.querySelectorAll("#quickNav button").forEach(b=>b.addEventListener("click",()=>runAction(b.dataset.group)));document.getElementById("fontBtn").onclick=()=>document.body.classList.toggle("big");document.getElementById("settingsBtn").onclick=openSettings;
+
+add(`<h3>🤖 수산기업정보 AI</h3>기업명·업종·지역·관련어로 검색하거나 검색창에서 <b>생산·가공·유통·외식</b>을 먼저 선택하십시오.<br><b>7,320개 통합 기업DB</b><br><span class="static-pill">Worker-free</span>`);
+const startup=loading("7,320개 통합 DB 연결 중...");
+loadStaticData().then(()=>{startup.remove();add(`<span class="badge ok">DB 연결</span> 기업 ${fmt(state.listRows.length)}개 · 고유주소 ${fmt(state.stats?.uniqueAddresses)}개 · 현재 좌표 ${fmt(state.coordinateByKey.size)}개<div class="source">지도 마커는 coordinates.json에 좌표가 있는 주소만 표시됩니다.</div>`);renderSuggest(input.value)}).catch(e=>{startup.remove();add(`<h3>DB 연결 오류</h3><div class="err">${esc(e.message)}</div>`)});
+if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("SW registration failed",e)))}
+
+</script>
+</body>
+</html>

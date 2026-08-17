@@ -1,0 +1,23 @@
+{
+  "name": "KAFV 수산기업정보 AI",
+  "short_name": "수산기업정보AI",
+  "description": "KAFV 수산기업 통합검색·기업지도·재무정보 PWA",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#BACEE0",
+  "theme_color": "#FEE500",
+  "icons": [
+    {
+      "src": "./kafv-fish-company-ai-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./kafv-fish-company-ai-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
