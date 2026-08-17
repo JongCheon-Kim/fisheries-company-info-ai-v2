@@ -112,7 +112,7 @@
 <div class="stage"><main class="phone" id="phone">
 <header class="header">
 <div class="logo" aria-hidden="true"><svg viewBox="0 0 64 64"><rect x="7" y="12" width="50" height="40" rx="10" fill="#fff"/><path d="M12 24l20 14 20-14" fill="none" stroke="#3c6f8f" stroke-width="6" stroke-linecap="round"/><path d="M16 42l12-12M48 42L36 30" fill="none" stroke="#3c6f8f" stroke-width="5" stroke-linecap="round"/><path d="M26 24c5-6 13-6 18 0-5 6-13 6-18 0z" fill="#6ca9c8"/><circle cx="40" cy="23" r="1.7" fill="#fff"/></svg></div>
-<div class="brand"><div class="title">KAFV 수산기업정보 AI</div><div class="sub"><span class="dot"></span>기업지도 · FIS 재무정보 연계 · v2.1</div></div>
+<div class="brand"><div class="title">KAFV 수산기업정보 AI</div><div class="sub"><span class="dot"></span>기업지도 · FIS 재무정보 연계 · v2.2</div></div>
 <button class="hbtn" id="fontBtn" title="글자 크기">가</button><button class="hbtn" id="settingsBtn" title="설정">⚙</button>
 </header>
 <section class="chat" id="chat"></section>
@@ -145,6 +145,7 @@ const COORD_DB_URL="./coordinates.json";
 const RELATION_DB_URL="./relations.json";
 const STATS_DB_URL="./stats.json";
 const ADDRESS_QUEUE_URL="./address_queue.json";
+const API_BASE="https://kafv-fish-company-test.123kjc.workers.dev";
 
 const state={
   company:null,listRows:[],listLoaded:false,listLoading:null,
@@ -274,6 +275,44 @@ function yearValue(r,y,field){
   if(String(r?.sourceYear)===String(y))return r?.[field];return null
 }
 function numericValue(v){if(v===null||v===undefined||v==="")return null;const n=Number(String(v).replace(/,/g,""));return Number.isFinite(n)?n:null}
+function minmaxYears(years){const ys=(years||[]).map(Number).filter(Number.isFinite);return [String(Math.min(...ys)),String(Math.max(...ys))]}
+function companyParams(years){
+  const r=state.company;if(!r?.cpnyCd)throw new Error("이 기업은 FIS 상세조회 대상이 아닙니다.");
+  const [beginYear,endYear]=minmaxYears(years);
+  return {companyName:r.companyName,cpnyCd:r.cpnyCd,businessType:r.businessType||"food",category2:r.category2||"",category3:r.category3||"",category4:r.category4||"",beginYear,endYear,years:years.join(",")};
+}
+async function api(params={}){
+  const u=new URL(API_BASE+"/");Object.entries(params).forEach(([k,v])=>{if(v!==""&&v!==null&&v!==undefined)u.searchParams.set(k,v)});
+  const r=await fetch(u,{headers:{Accept:"application/json"}});
+  if(!r.ok){let msg=`HTTP ${r.status}`;try{const j=await r.json();msg=j.error||msg}catch{}throw new Error(msg)}
+  return await r.json();
+}
+function workerMetric(metrics,key,label){
+  const m=metrics?.[key];if(m)return m;return {label,unit:"원문 단위",found:false,values:[]};
+}
+function metricYearValue(m,y){const v=(m?.values||[]).find(x=>String(x.year)===String(y));return numericValue(v?.numeric??v?.raw)}
+function fisFinanceTable(metrics,years){
+  const defs=[["매출액","sales"],["영업이익","operatingProfit"],["당기순이익","netProfit"]];
+  return `<div class="metric-card"><div class="metric-head"><b>핵심 재무</b><span>${years.join(" · ")}</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>구분</th>${years.map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${defs.map(([lab,k])=>{const m=workerMetric(metrics,k,lab);return `<tr><td>${lab}</td>${years.map(y=>{const v=(m.values||[]).find(x=>String(x.year)===String(y));return `<td>${v?fmt(v.raw??v.numeric):"-"}</td>`}).join("")}</tr>`}).join("")}</tbody></table></div></div>`;
+}
+function fisFinancialHealthHtml(metrics,years){
+  const a=metrics?.totalAssets||metrics?.assets,l=metrics?.totalLiabilities||metrics?.liabilities,e=metrics?.totalEquity||metrics?.equity;
+  const rows=years.map(y=>{const av=metricYearValue(a,y),lv=metricYearValue(l,y),ev=metricYearValue(e,y);return {y,a:av,l:lv,e:ev,debt:(ev!==null&&ev!==0&&lv!==null)?lv/ev*100:null,equityRatio:(av!==null&&av!==0&&ev!==null)?ev/av*100:null}});
+  if(!rows.some(x=>x.a!==null||x.l!==null||x.e!==null))return `<div class="empty-card"><b>재무 건전성</b> · FIS 응답에서 선택 연도의 자산·부채·자본 계정을 찾지 못했습니다.</div>`;
+  return `<div class="metric-card"><div class="metric-head"><b>재무 건전성</b><span>FIS 원문 기준</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>연도</th><th>자산총계</th><th>부채총계</th><th>자본총계</th><th>부채비율</th><th>자기자본비율</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${esc(x.y)}</td><td>${x.a===null?"-":fmt(x.a)}</td><td>${x.l===null?"-":fmt(x.l)}</td><td>${x.e===null?"-":fmt(x.e)}</td><td>${x.debt===null?"-":x.debt.toFixed(1)+"%"}</td><td>${x.equityRatio===null?"-":x.equityRatio.toFixed(1)+"%"}</td></tr>`).join("")}</tbody></table></div></div>`;
+}
+function fisTrendHtml(metrics){
+  const defs=[["매출액","sales"],["영업이익","operatingProfit"],["당기순이익","netProfit"]];
+  return `<div class="section-title">기간별 경영동향</div>${defs.map(([lab,k])=>metricHtml(workerMetric(metrics,k,lab))).join("")}`;
+}
+function renderFisStatements(data,requested){
+  const ss=data?.financialData?.statements||{};let html="";
+  for(const key of requested){const st=ss[key];if(!st){html+=`<div class="empty-card"><b>${esc(key)}</b> · FIS 응답에 해당 재무제표가 없습니다.</div>`;continue}
+    html+=`<div class="metric-card"><div class="metric-head"><b>${esc(st.title||key)}</b><span>${st.accounts?.length||0}개 계정</span></div>`;
+    if(!st.accounts?.length){html+=`<div class="hint">선택 조건에 표시할 계정이 없습니다.</div></div>`;continue}
+    html+=`<div class="statement-wrap"><table class="statement-table"><thead><tr><th>계정과목</th>${(st.years||[]).map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${st.accounts.map(a=>`<tr><td>${esc(a.sourceLabel||a.label||"")}</td>${(a.values||[]).map(v=>`<td>${fmt(v.raw??v.numeric)}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  }return html;
+}
 function metricObject(r,label,field,years){
   const values=years.map(y=>({year:y,raw:yearValue(r,y,field),numeric:numericValue(yearValue(r,y,field))})).filter(v=>v.raw!==null&&v.raw!==undefined&&v.raw!=="");
   return {label,unit:"원자료 단위",found:values.length>0,values,years}
@@ -311,31 +350,28 @@ function showCompany(){
   if(r.principalProduct)html+=`<div class="source">주요생산품: ${esc(r.principalProduct)}</div>`;
   html+=`<div class="metric-card"><div class="metric-head"><b>${esc(r.sourceYear||"")} 핵심재무</b><span>보존 원문값</span></div><table class="mini-table"><tbody><tr><td>매출액</td><td>${fmt(r.sales)}</td></tr><tr><td>영업이익</td><td>${fmt(r.operatingProfit)}</td></tr><tr><td>당기순이익</td><td>${fmt(r.netProfit)}</td></tr></tbody></table></div>`;
   const rels=state.relationsByRecord.get(String(r.recordId))||[];if(rels.length)html+=`<div class="source">2019 거래관계 ${rels.length}건 보유</div>`;
-  html+=`<div class="source">외부 기업 API 호출 없음</div>`;add(html)
+  html+=`<div class="source">기업 기본정보: 정적 DB · FIS 상세재무: Worker 조회</div>`;add(html)
 }
 function openCore(){
   leaveMapForPanel("core");if(!state.company)return setSheet(`${sheetHead("핵심정보")}<div class="hint">먼저 기업을 선택하십시오.</div>`);
-  const years=availableYears(state.company);
+  const years=availableYears(state.company),fis=state.company.sector!=="production";
   setSheet(`${sheetHead("핵심정보 선택")}<div class="section-title">① 조회할 핵심정보</div><div class="option-grid">
   <label class="check-card on"><input id="core-overview" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">기업개요</label>
   <label class="check-card on"><input id="core-sales" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">매출·이익</label>
-  <label class="check-card"><input id="core-health" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">재무 건전성</label>
-  <label class="check-card"><input id="core-trend" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">기간별 경영동향</label>
-  </div>${yearsHtml(years)}<button class="primary" onclick="runCore()">선택 핵심정보 조회</button><div class="hint">${state.company.sector==="production"?"생산기업은 2019 원자료를 기준으로 조회합니다.":"FIS 기업은 2021~2024를 조회연도로 제공합니다. 현재 정적 DB에 보존되지 않은 연도·계정은 '-'로 표시합니다."}</div>`)
+  <label class="check-card on"><input id="core-health" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">재무 건전성</label>
+  <label class="check-card on"><input id="core-trend" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">기간별 경영동향</label>
+  </div>${yearsHtml(years)}<button class="primary" onclick="runCore()">선택 핵심정보 조회</button><div class="hint">${fis?"FIS 기업은 Worker를 통해 2021~2024 실제 기업상세 재무를 조회합니다.":"생산기업은 2019 원자료를 기준으로 조회합니다."}</div>`);
 }
-function runCore(){
+async function runCore(){
   const r=state.company;if(!r)return;const years=selectedYears();if(!years.length)return alert("조회 연도를 선택하십시오.");
-  const overview=document.getElementById("core-overview")?.checked;
-  const sales=document.getElementById("core-sales")?.checked;
-  const health=document.getElementById("core-health")?.checked;
-  const trend=document.getElementById("core-trend")?.checked;
-  if(!overview&&!sales&&!health&&!trend)return alert("조회할 핵심정보를 하나 이상 선택하십시오.");
-  closeSheet();
-  let html=`<h3>📊 ${esc(r.companyName)} 핵심정보</h3>`;if(overview)html+=companyKv(r);
-  if(sales){html+=metricHtml(metricObject(r,"매출액","sales",years));html+=metricHtml(metricObject(r,"영업이익","operatingProfit",years));html+=metricHtml(metricObject(r,"당기순이익","netProfit",years))}
-  if(health)html+=financialHealthHtml(r,years);
-  if(trend)html+=trendSummaryHtml(r,years);
-  html+=`<div class="source">출처: ${esc(r.source||"-")} · 결측은 0으로 대체하지 않음</div>`;add(html)
+  const core={overview:document.getElementById("core-overview")?.checked,sales:document.getElementById("core-sales")?.checked,health:document.getElementById("core-health")?.checked,trend:document.getElementById("core-trend")?.checked};
+  if(!core.overview&&!core.sales&&!core.health&&!core.trend)return alert("조회할 핵심정보를 하나 이상 선택하십시오.");closeSheet();
+  if(r.sector==="production"){let html=`<h3>📊 ${esc(r.companyName)} 핵심정보</h3>`;if(core.overview)html+=companyKv(r);if(core.sales){html+=metricHtml(metricObject(r,"매출액","sales",years));html+=metricHtml(metricObject(r,"영업이익","operatingProfit",years));html+=metricHtml(metricObject(r,"당기순이익","netProfit",years))}if(core.health)html+=financialHealthHtml(r,years);if(core.trend)html+=trendSummaryHtml(r,years);html+=`<div class="source">출처: ${esc(r.source||"-")} · 결측은 0으로 대체하지 않음</div>`;return add(html)}
+  if(core.overview&&!core.sales&&!core.health&&!core.trend)return add(`<h3>🏢 ${esc(r.companyName)} 기업개요</h3>${companyKv(r)}<div class="source">기업 기본정보: 통합 Master DB</div>`);
+  const metricKeys=new Set();if(core.sales||core.trend)["sales","operatingProfit","netProfit"].forEach(k=>metricKeys.add(k));if(core.health)["totalAssets","totalLiabilities","totalEquity","currentAssets","currentLiabilities"].forEach(k=>metricKeys.add(k));
+  const node=loading("FIS 2021~2024 실제 재무정보를 불러오는 중...");
+  try{const params={...companyParams(years),view:"summary",metrics:[...metricKeys].join(",")};const data=await api(params);node.remove();if(!data?.success)throw new Error(data?.error||"FIS 조회 실패");const metrics=data.financialData?.metrics||{};let html=`<h3>📊 ${esc(r.companyName)} 핵심정보</h3>`;if(core.overview)html+=companyKv(r);if(core.sales)html+=fisFinanceTable(metrics,years);if(core.health)html+=fisFinancialHealthHtml(metrics,years);if(core.trend)html+=fisTrendHtml(metrics);if(data.qa?.scaleCheckRequired)html+=`<div class="qa">⚠ 일부 계정은 연도 사이 자릿수 급변이 감지되어 자동 환산하지 않았습니다.</div>`;html+=`<div class="source">출처: ${esc(data.source?.service||"aT FIS 식품산업통계정보 기업현황")} · Worker 실시간 조회 · 원문값 보존</div>`;add(html)}
+  catch(e){node.remove();let html=`<h3>📊 ${esc(r.companyName)} 핵심정보</h3>`;if(core.overview)html+=companyKv(r);if(core.sales)html+=`<div class="metric-card"><div class="metric-head"><b>${esc(r.sourceYear||"2024")} 저장 핵심재무</b><span>정적 백업</span></div><table class="mini-table"><tbody><tr><td>매출액</td><td>${fmt(r.sales)}</td></tr><tr><td>영업이익</td><td>${fmt(r.operatingProfit)}</td></tr><tr><td>당기순이익</td><td>${fmt(r.netProfit)}</td></tr></tbody></table></div>`;html+=`<div class="err">FIS Worker 조회 오류: ${esc(e.message)}</div><div class="qa">실시간 조회 실패 시 2024 정적 백업값만 표시하며 2021~2023 값을 임의 생성하지 않습니다.</div>`;add(html)}
 }
 
 function statementTable(title,rows,years,r){
@@ -353,32 +389,26 @@ function openDetail(){
     <label class="check-card on"><input data-stmt="income" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">손익계산서</label>
     <label class="check-card on"><input data-stmt="balance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">재무상태표</label>
     <label class="check-card"><input data-stmt="cash" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">현금흐름표</label>
-    <label class="check-card on"><input data-stmt="relations" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">구매·판매관계</label></div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">선택항목 조회</button><div class="hint">생산기업은 2019 원자료와 거래관계 백업자료를 사용합니다.</div>`)
+    <label class="check-card on"><input data-stmt="relations" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">구매·판매관계</label></div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">선택항목 조회</button><div class="hint">생산기업은 2019 원자료와 거래관계 백업자료를 사용합니다.</div>`);
   }else{
-    setSheet(`${sheetHead("상세정보 선택")}<div class="section-title">① 정적 백업 상세정보</div><div class="option-grid">
+    setSheet(`${sheetHead("상세정보 선택")}<div class="section-title">① 조회할 상세정보</div><div class="option-grid">
     <label class="check-card on"><input data-stmt="profile" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">기업 상세</label>
-    <label class="check-card on"><input data-stmt="finance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">핵심 재무</label></div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">상세정보 조회</button><div class="hint">FIS 조회연도는 2021~2024입니다. 현재 정적 Master에 없는 연도·세부계정은 '-'로 표시합니다.</div>`)
+    <label class="check-card on"><input data-stmt="finance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">핵심 재무</label>
+    <label class="check-card on"><input data-stmt="income" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">손익계산서</label>
+    <label class="check-card on"><input data-stmt="balance" type="checkbox" checked onchange="this.parentElement.classList.toggle('on',this.checked)">재무상태표</label>
+    <label class="check-card"><input data-stmt="cash" type="checkbox" onchange="this.parentElement.classList.toggle('on',this.checked)">현금흐름표</label>
+    </div>${yearsHtml(years)}<button class="primary" onclick="runDetail()">상세정보 조회</button><div class="hint">FIS 기업은 Worker를 통해 선택한 2021~2024 실제 세부 재무제표를 조회합니다.</div>`);
   }
 }
-function runDetail(){
+async function runDetail(){
   const r=state.company;if(!r)return;const years=selectedYears();if(!years.length)return alert("조회 연도를 선택하십시오.");
   const stmts=[...document.querySelectorAll("#sheet input[data-stmt]:checked")].map(x=>x.dataset.stmt);if(!stmts.length)return alert("조회할 상세정보를 하나 이상 선택하십시오.");closeSheet();
-  let html=`<h3>▤ ${esc(r.companyName)} 상세정보</h3>`;
-  if(r.sector==="production"){
-    html+=companyKv(r);
-    const defs={income:[["매출액","sales"],["매출원가","costOfSales"],["매출총이익","grossProfit"],["영업이익","operatingProfit"],["당기순이익","netProfit"]],balance:[["유동자산","currentAssets"],["비유동자산","noncurrentAssets"],["자산총계","assets"],["유동부채","currentLiabilities"],["비유동부채","noncurrentLiabilities"],["부채총계","liabilities"],["자본총계","equity"]],cash:[["기초현금","beginningCash"],["영업활동현금흐름","operatingCashFlow"],["투자활동현금흐름","investingCashFlow"],["재무활동현금흐름","financingCashFlow"],["기말현금","endingCash"]]};
-    if(stmts.includes("income"))html+=statementTable("손익계산서",defs.income,years,r);
-    if(stmts.includes("balance"))html+=statementTable("재무상태표",defs.balance,years,r);
-    if(stmts.includes("cash"))html+=statementTable("현금흐름표",defs.cash,years,r);
-    if(stmts.includes("relations"))html+=relationHtml(r)
-  }else{
-    if(stmts.includes("profile"))html+=companyKv(r);
-    if(stmts.includes("finance")){
-      html+=`<div class="metric-card"><div class="metric-head"><b>핵심 재무</b><span>통합 Master DB</span></div><div class="statement-wrap"><table class="statement-table"><thead><tr><th>구분</th>${years.map(y=>`<th>${esc(y)}</th>`).join("")}</tr></thead><tbody>${[["매출액","sales"],["영업이익","operatingProfit"],["당기순이익","netProfit"]].map(([lab,k])=>`<tr><td>${lab}</td>${years.map(y=>`<td>${fmt(yearValue(r,y,k))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
-      html+=`<div class="qa">FIS 기업상세의 연도 범위는 2021~2024입니다. 현재 정적 Master에는 2024 핵심값 중심으로 저장되어 있어 미보존 연도는 '-'로 표시됩니다.</div>`
-    }
-  }
-  html+=`<div class="source">외부 기업정보 API 호출 없음</div>`;add(html)
+  if(r.sector==="production"){let html=`<h3>▤ ${esc(r.companyName)} 상세정보</h3>`;html+=companyKv(r);const defs={income:[["매출액","sales"],["매출원가","costOfSales"],["매출총이익","grossProfit"],["영업이익","operatingProfit"],["당기순이익","netProfit"]],balance:[["유동자산","currentAssets"],["비유동자산","noncurrentAssets"],["자산총계","assets"],["유동부채","currentLiabilities"],["비유동부채","noncurrentLiabilities"],["부채총계","liabilities"],["자본총계","equity"]],cash:[["기초현금","beginningCash"],["영업활동현금흐름","operatingCashFlow"],["투자활동현금흐름","investingCashFlow"],["재무활동현금흐름","financingCashFlow"],["기말현금","endingCash"]]};if(stmts.includes("income"))html+=statementTable("손익계산서",defs.income,years,r);if(stmts.includes("balance"))html+=statementTable("재무상태표",defs.balance,years,r);if(stmts.includes("cash"))html+=statementTable("현금흐름표",defs.cash,years,r);if(stmts.includes("relations"))html+=relationHtml(r);html+=`<div class="source">생산기업 원자료 · 결측은 0으로 대체하지 않음</div>`;return add(html)}
+  if(stmts.length===1&&stmts[0]==="profile")return add(`<h3>▤ ${esc(r.companyName)} 기업 상세</h3>${companyKv(r)}<div class="source">기업 기본정보: 통합 Master DB</div>`);
+  const needFinance=stmts.includes("finance"),requested=stmts.filter(x=>["income","balance","cash"].includes(x));
+  const node=loading("FIS 2021~2024 상세 재무제표를 불러오는 중...");
+  try{let summary=null,detail=null;const jobs=[];if(needFinance)jobs.push(api({...companyParams(years),view:"summary",metrics:"sales,operatingProfit,netProfit"}).then(x=>summary=x));if(requested.length)jobs.push(api({...companyParams(years),view:"detail",statement:requested.join(",")}).then(x=>detail=x));await Promise.all(jobs);node.remove();if(summary&&!summary.success)throw new Error(summary.error||"FIS 핵심재무 조회 실패");if(detail&&!detail.success)throw new Error(detail.error||"FIS 상세재무 조회 실패");let html=`<h3>▤ ${esc(r.companyName)} 상세정보</h3>`;if(stmts.includes("profile"))html+=companyKv(r);if(needFinance)html+=fisFinanceTable(summary?.financialData?.metrics||{},years);if(requested.length)html+=renderFisStatements(detail,requested);html+=`<div class="source">출처: aT FIS 식품산업통계정보 기업현황 · Worker 실시간 조회 · FIS 원문 표시단위와 숫자 보존</div>`;add(html)}
+  catch(e){node.remove();let html=`<h3>▤ ${esc(r.companyName)} 상세정보</h3>`;if(stmts.includes("profile"))html+=companyKv(r);if(needFinance)html+=`<div class="metric-card"><div class="metric-head"><b>${esc(r.sourceYear||"2024")} 핵심 재무</b><span>정적 백업</span></div><table class="mini-table"><tbody><tr><td>매출액</td><td>${fmt(r.sales)}</td></tr><tr><td>영업이익</td><td>${fmt(r.operatingProfit)}</td></tr><tr><td>당기순이익</td><td>${fmt(r.netProfit)}</td></tr></tbody></table></div>`;html+=`<div class="err">FIS Worker 상세조회 오류: ${esc(e.message)}</div><div class="qa">세부 재무제표를 임의 생성하지 않고 정적 백업에 존재하는 값만 표시합니다.</div>`;add(html)}
 }
 
 function openPatent(){leaveMapForPanel("save");setSheet(`${sheetHead("특허정보")}<div class="empty-card">현재 통합 Master에 특허 상세 레코드는 별도 백업되어 있지 않습니다. 임의 값을 만들지 않습니다.</div>`)}
@@ -388,8 +418,8 @@ function downloadCsv(){
   const headers=Object.keys(flat),q=v=>`"${String(v??"").replace(/"/g,'""')}"`,csv="\uFEFF"+headers.map(q).join(",")+"\r\n"+headers.map(h=>q(flat[h])).join(",");
   const blob=new Blob([csv],{type:"text/csv;charset=utf-8"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`${String(r.companyName||"기업").replace(/[\\/:*?"<>|]/g,"_")}_수산기업정보.csv`;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(a.href);closeSheet()
 }
-function showHelp(){leaveMapForPanel("save");setSheet(`${sheetHead("앱 사용법")}<div class="hint" style="font-size:11px">① 기업명·업종·지역으로 검색<br><br>② 기업지도에서 산업부문 필터<br><br>③ <b>마커에 마우스를 올리면 핵심정보 즉시 표시</b><br><br>④ 마커 클릭 시 지도를 닫지 않고 기업 선택창 표시<br><br>⑤ 동일 주소에 여러 기업이 있으면 한 마커에서 기업목록 선택<br><br>⑥ 핵심정보·상세정보는 정적 백업자료 사용<br><br>⑦ 지도 조건은 특허·저장 → 지도 조건 선택에서 설정</div>`)}
-function showDataPrinciples(){leaveMapForPanel("save");setSheet(`${sheetHead("데이터 원칙")}<div class="hint" style="font-size:11px"><b>정적 DB 운영</b><br>앱 실행 중 FIS·Worker·지오코딩 API를 호출하지 않습니다.<br><br><b>좌표</b><br>사전에 생성한 coordinates.json의 검증 좌표만 사용합니다.<br><br><b>동일주소</b><br>가락시장 등 한 주소에 여러 기업이 있으면 임의로 흩뿌리지 않고 동일 위치에서 묶어 표시합니다.</div>`)}
+function showHelp(){leaveMapForPanel("save");setSheet(`${sheetHead("앱 사용법")}<div class="hint" style="font-size:11px">① 기업명·업종·지역으로 검색<br><br>② 기업지도에서 산업부문 필터<br><br>③ <b>마커에 마우스를 올리면 핵심정보 즉시 표시</b><br><br>④ 마커 클릭 시 지도를 닫지 않고 기업 선택창 표시<br><br>⑤ 동일 주소에 여러 기업이 있으면 한 마커에서 기업목록 선택<br><br>⑥ 기업 기본정보·지도는 정적 DB, FIS 상세재무는 Worker로 실시간 조회<br><br>⑦ 지도 조건은 특허·저장 → 지도 조건 선택에서 설정</div>`)}
+function showDataPrinciples(){leaveMapForPanel("save");setSheet(`${sheetHead("데이터 원칙")}<div class="hint" style="font-size:11px"><b>하이브리드 운영</b><br>기업 기본정보·지도좌표는 정적 DB를 사용하고, FIS 기업의 2021~2024 상세재무만 Cloudflare Worker로 조회합니다. 지오코딩 API는 앱 실행 중 호출하지 않습니다.<br><br><b>좌표</b><br>사전에 생성한 coordinates.json의 검증 좌표만 사용합니다.<br><br><b>동일주소</b><br>가락시장 등 한 주소에 여러 기업이 있으면 임의로 흩뿌리지 않고 동일 위치에서 묶어 표시합니다.</div>`)}
 function showDbStatus(){
   leaveMapForPanel("");const s=state.stats||{};setSheet(`${sheetHead("정적 DB 현황")}<div class="kv"><b>기업 레코드</b><span>${fmt(s.records||state.listRows.length)}</span><b>생산</b><span>${fmt(s.production)}</span><b>식품제조</b><span>${fmt(s.processing)}</span><b>도매·소매</b><span>${fmt(s.distribution)}</span><b>외식</b><span>${fmt(s.foodservice)}</span><b>고유주소</b><span>${fmt(s.uniqueAddresses)}</span><b>좌표 확보</b><span>${fmt(state.coordinateByKey.size)}</span><b>지도표시 기업</b><span>${fmt(state.mapRows.length)}</span></div><button class="primary" onclick="reloadDb()">DB 다시 불러오기</button><div class="hint">현재 coordinates.json의 성공좌표를 사용합니다. 실패주소는 후속 보정 후 좌표파일만 교체하면 됩니다.</div>`)
 }
@@ -760,11 +790,15 @@ function renderSearchSectorBar(){
       ${s.label}<span class="n">${fmt(sectorCount(s.key))}</span>
     </button>`
   ).join("");
-  searchSectorBar.querySelectorAll("[data-search-sector]").forEach(b=>b.onclick=()=>{
-    state.searchSector=b.dataset.searchSector;
-    renderSearchSectorBar();
-    renderSuggest(input.value);
-    suggestList.scrollTop=0;
+  searchSectorBar.querySelectorAll("[data-search-sector]").forEach(b=>{
+    b.onpointerdown=e=>{e.stopPropagation()};
+    b.onclick=e=>{
+      e.preventDefault();e.stopPropagation();
+      state.searchSector=b.dataset.searchSector;
+      renderSuggest(input.value);
+      suggestList.scrollTop=0;
+      suggest.classList.add("on");dropBtn.classList.add("open");state.suggestOpen=true;
+    };
   });
   if(searchSectorHint){
     const lab=SEARCH_SECTORS.find(x=>x.key===state.searchSector)?.label||"전체";
@@ -868,7 +902,7 @@ dropBtn.addEventListener("click",()=>state.suggestOpen?hideSuggest():showSuggest
 document.getElementById("composer").addEventListener("submit",async e=>{e.preventDefault();const q=input.value.trim();if(!q)return showSuggest();add(esc(q),"user");input.value="";hideSuggest();const s=q.toLowerCase();if(s.includes("지도"))return openMap();if(s.includes("핵심")||s.includes("매출")||s.includes("이익"))return openCore();if(s.includes("상세")||s.includes("재무")||s.includes("거래"))return openDetail();if(s.includes("csv")||s.includes("저장"))return downloadCsv();await ensureData();const tokens=s.split(/\s+/).filter(Boolean),matches=state.listRows.filter(r=>(state.searchSector==="all"||r.sector===state.searchSector)&&tokens.every(t=>(r.searchText||"").includes(t)));if(matches.length===1)return selectCompanyById(matches[0].recordId);if(matches.length>1){input.value=q;showSuggest();return}add("일치하는 기업이 없습니다.")});
 document.querySelectorAll("#quickNav button").forEach(b=>b.addEventListener("click",()=>runAction(b.dataset.group)));document.getElementById("fontBtn").onclick=()=>document.body.classList.toggle("big");document.getElementById("settingsBtn").onclick=openSettings;
 
-add(`<h3>🤖 수산기업정보 AI</h3>기업명·업종·지역·관련어로 검색하거나 검색창에서 <b>생산·가공·유통·외식</b>을 먼저 선택하십시오.<br><b>7,320개 통합 기업DB</b><br><span class="static-pill">Worker-free</span>`);
+add(`<h3>🤖 수산기업정보 AI</h3>기업명·업종·지역·관련어로 검색하거나 검색창에서 <b>생산·가공·유통·외식</b>을 먼저 선택하십시오.<br><b>7,320개 통합 기업DB</b> · FIS 기업은 2021~2024 상세재무를 Worker로 조회합니다.<br><span class="static-pill">FIS Worker 연계</span>`);
 const startup=loading("7,320개 통합 DB 연결 중...");
 loadStaticData().then(()=>{startup.remove();add(`<span class="badge ok">DB 연결</span> 기업 ${fmt(state.listRows.length)}개 · 고유주소 ${fmt(state.stats?.uniqueAddresses)}개 · 현재 좌표 ${fmt(state.coordinateByKey.size)}개<div class="source">지도 마커는 coordinates.json에 좌표가 있는 주소만 표시됩니다.</div>`);renderSuggest(input.value)}).catch(e=>{startup.remove();add(`<h3>DB 연결 오류</h3><div class="err">${esc(e.message)}</div>`)});
 if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(e=>console.warn("SW registration failed",e)))}
