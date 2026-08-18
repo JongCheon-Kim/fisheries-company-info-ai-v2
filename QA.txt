@@ -11,7 +11,7 @@ KAFV 수산기업정보 AI v2.2 QA
 [데이터]
 - 기업 7,320
 - 고유주소 6,316
-- coordinates.json 4,304
+- coordinates.json 4,304 
 - 지도 연결기업 5,144
 
 [UI 및 지도]
